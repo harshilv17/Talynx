@@ -6,6 +6,8 @@ import { JDPreview } from "./JDPreview";
 import { GuardrailBanner } from "./GuardrailBanner";
 import { ActionPanel } from "./ActionPanel";
 import { SuccessScreen } from "./SuccessScreen";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
 interface JDContent {
@@ -71,7 +73,8 @@ export function JDReview({ threadId }: JDReviewProps) {
           setEditedJd(data.jd_draft);
         }
 
-        if (data.status === "pending_review" || data.status === "published" || data.status === "failed") {
+        const s = data.status?.toLowerCase?.() ?? "";
+        if (s === "pending_review" || s === "published" || s === "failed") {
           setIsLoading(false);
         }
       } catch (err: any) {
@@ -82,7 +85,8 @@ export function JDReview({ threadId }: JDReviewProps) {
 
     fetchStatus();
 
-    if (!status || (status.status !== "pending_review" && status.status !== "published" && status.status !== "failed")) {
+    const s = status?.status?.toLowerCase?.() ?? "";
+    if (!status || (s !== "pending_review" && s !== "published" && s !== "failed")) {
       const interval = setInterval(fetchStatus, 2000);
       return () => clearInterval(interval);
     }
@@ -117,7 +121,8 @@ export function JDReview({ threadId }: JDReviewProps) {
         );
         const statusData = await statusResponse.json();
         
-        if (statusData.status === "published") {
+        const s = (statusData.status || "").toLowerCase();
+        if (s === "published") {
           clearInterval(interval);
           setStatus(statusData);
           setIsSubmitting(false);
@@ -161,7 +166,8 @@ export function JDReview({ threadId }: JDReviewProps) {
         );
         const statusData = await statusResponse.json();
         
-        if (statusData.status === "published") {
+        const s = (statusData.status || "").toLowerCase();
+        if (s === "published") {
           clearInterval(interval);
           setStatus(statusData);
           setIsSubmitting(false);
@@ -233,11 +239,12 @@ export function JDReview({ threadId }: JDReviewProps) {
     );
   }
 
-  if (status?.status === "published") {
+  const statusLower = status?.status?.toLowerCase?.() ?? "";
+  if (statusLower === "published") {
     return <SuccessScreen />;
   }
 
-  if (status?.status === "failed") {
+  if (statusLower === "failed") {
     return (
       <div className="max-w-2xl mx-auto py-12">
         <Card className="shadow-lg border-destructive">

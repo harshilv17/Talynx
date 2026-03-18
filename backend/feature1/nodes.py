@@ -2,12 +2,11 @@ from typing import Dict, Any
 import json
 import time
 from openai import OpenAI
-from sqlalchemy.orm import Session
-from sqlalchemy.sql import func
 from feature1.state import Feature1State
 from feature1.schemas import JDContent, GuardrailResult, GuardrailIssue
 from feature1.prompts import get_jd_generation_prompt, get_guardrail_prompt, format_jd_for_guardrail
-from feature1.models import RoleBrief, JobDescription, SourcingQueue, RoleBriefStatus, JDStatus, SourcingQueueStatus
+from feature1.models import RoleBriefStatus, JDStatus
+from feature1 import db_ops
 from core.openai_client import get_openai_client
 from langgraph.types import interrupt
 
@@ -38,7 +37,7 @@ def call_openai_with_retry(client: OpenAI, model: str, messages: list, max_retri
     raise Exception("Unexpected error in retry logic")
 
 
-def validate_node(state: Feature1State, db: Session) -> Feature1State:
+def validate_node(state: Feature1State) -> Feature1State:
     """Validate the role brief input."""
     
     role_brief = state["role_brief"]
@@ -69,31 +68,16 @@ def validate_node(state: Feature1State, db: Session) -> Feature1State:
     if errors:
         state["validation_errors"] = errors
         state["status"] = "failed"
-        
-        db_role_brief = db.query(RoleBrief).filter(
-            RoleBrief.thread_id == state["thread_id"]
-        ).first()
-        if db_role_brief:
-            db_role_brief.status = RoleBriefStatus.FAILED
-            db_role_brief.error_message = "; ".join(errors)
-            db.commit()
-        
+        db_ops.update_role_brief_status(state["thread_id"], RoleBriefStatus.FAILED, "; ".join(errors))
         return state
     
     state["validation_errors"] = None
     state["status"] = "generating"
-    
-    db_role_brief = db.query(RoleBrief).filter(
-        RoleBrief.thread_id == state["thread_id"]
-    ).first()
-    if db_role_brief:
-        db_role_brief.status = RoleBriefStatus.GENERATING
-        db.commit()
-    
+    db_ops.update_role_brief_status(state["thread_id"], RoleBriefStatus.GENERATING)
     return state
 
 
-def jd_generation_node(state: Feature1State, db: Session) -> Feature1State:
+def jd_generation_node(state: Feature1State) -> Feature1State:
     """Generate job description using GPT-4o."""
     
     client = get_openai_client()
@@ -133,31 +117,17 @@ def jd_generation_node(state: Feature1State, db: Session) -> Feature1State:
         if is_revision:
             state["feedback"] = None
         
-        db_role_brief = db.query(RoleBrief).filter(
-            RoleBrief.thread_id == state["thread_id"]
-        ).first()
-        if db_role_brief:
-            db_role_brief.status = RoleBriefStatus.CHECKING
-            db.commit()
-        
+        db_ops.update_role_brief_status(state["thread_id"], RoleBriefStatus.CHECKING)
         return state
     
     except Exception as e:
         state["status"] = "failed"
         state["error_message"] = f"JD generation failed: {str(e)}"
-        
-        db_role_brief = db.query(RoleBrief).filter(
-            RoleBrief.thread_id == state["thread_id"]
-        ).first()
-        if db_role_brief:
-            db_role_brief.status = RoleBriefStatus.FAILED
-            db_role_brief.error_message = state["error_message"]
-            db.commit()
-        
+        db_ops.update_role_brief_status(state["thread_id"], RoleBriefStatus.FAILED, state["error_message"])
         return state
 
 
-def guardrail_node(state: Feature1State, db: Session) -> Feature1State:
+def guardrail_node(state: Feature1State) -> Feature1State:
     """Check JD for compliance issues using GPT-4o-mini."""
     
     client = get_openai_client()
@@ -197,43 +167,36 @@ def guardrail_node(state: Feature1State, db: Session) -> Feature1State:
         state["guardrail_result"] = guardrail_result.dict()
         state["status"] = "pending_review"
         
-        db_role_brief = db.query(RoleBrief).filter(
-            RoleBrief.thread_id == state["thread_id"]
-        ).first()
-        if db_role_brief:
-            db_role_brief.status = RoleBriefStatus.PENDING_REVIEW
-            db.commit()
+        db_ops.update_role_brief_status(state["thread_id"], RoleBriefStatus.PENDING_REVIEW)
+        
+        role_brief = db_ops.get_role_brief_by_thread(state["thread_id"])
+        if not role_brief:
+            state["status"] = "failed"
+            state["error_message"] = "Role brief not found"
+            return state
         
         current_version = state.get("version", 1)
-        
-        jd_record = JobDescription(
-            role_brief_id=db_role_brief.id,
-            thread_id=state["thread_id"],
-            version=current_version,
-            status=JDStatus.PENDING_REVIEW,
-            jd_content=state["jd_draft"] if isinstance(state["jd_draft"], dict) else state["jd_draft"].dict(),
-            guardrail_passed=1 if result["passed"] else 0,
-            guardrail_issues=result.get("issues", []),
-            guardrail_corrected_jd=result.get("corrected_jd"),
-            tone_score=result.get("tone_score", 0.0)
+        jd_content = state["jd_draft"] if isinstance(state["jd_draft"], dict) else state["jd_draft"].dict()
+        db_ops.insert_job_description(
+            state["thread_id"],
+            role_brief["_id"],
+            {
+                "version": current_version,
+                "status": JDStatus.PENDING_REVIEW,
+                "jd_content": jd_content,
+                "guardrail_passed": 1 if result["passed"] else 0,
+                "guardrail_issues": result.get("issues", []),
+                "guardrail_corrected_jd": result.get("corrected_jd"),
+                "tone_score": result.get("tone_score", 0.0),
+            },
         )
-        db.add(jd_record)
-        db.commit()
         
         return state
     
     except Exception as e:
         state["status"] = "failed"
         state["error_message"] = f"Guardrail check failed: {str(e)}"
-        
-        db_role_brief = db.query(RoleBrief).filter(
-            RoleBrief.thread_id == state["thread_id"]
-        ).first()
-        if db_role_brief:
-            db_role_brief.status = RoleBriefStatus.FAILED
-            db_role_brief.error_message = state["error_message"]
-            db.commit()
-        
+        db_ops.update_role_brief_status(state["thread_id"], RoleBriefStatus.FAILED, state["error_message"])
         return state
 
 
@@ -259,7 +222,7 @@ def review_node(state: Feature1State) -> Feature1State:
     return state
 
 
-def publish_node(state: Feature1State, db: Session) -> Feature1State:
+def publish_node(state: Feature1State) -> Feature1State:
     """Publish the approved JD and create sourcing queue record."""
     
     thread_id = state["thread_id"]
@@ -273,54 +236,26 @@ def publish_node(state: Feature1State, db: Session) -> Feature1State:
     
     final_jd_dict = final_jd if isinstance(final_jd, dict) else final_jd.dict()
     
-    db_role_brief = db.query(RoleBrief).filter(
-        RoleBrief.thread_id == thread_id
-    ).first()
-    
-    if not db_role_brief:
+    role_brief = db_ops.get_role_brief_by_thread(thread_id)
+    if not role_brief:
         state["status"] = "failed"
         state["error_message"] = "Role brief not found"
         return state
     
-    jd_record = db.query(JobDescription).filter(
-        JobDescription.thread_id == thread_id,
-        JobDescription.version == state.get("version", 1)
-    ).first()
-    
-    if jd_record:
-        jd_record.status = JDStatus.PUBLISHED
-        jd_record.jd_content = final_jd_dict
-        from datetime import datetime
-        jd_record.published_at = datetime.now()
-    else:
-        from datetime import datetime
-        jd_record = JobDescription(
-            role_brief_id=db_role_brief.id,
-            thread_id=thread_id,
-            version=state.get("version", 1),
-            status=JDStatus.PUBLISHED,
-            jd_content=final_jd_dict,
-            guardrail_passed=state["guardrail_result"]["passed"] if state.get("guardrail_result") else True,
-            guardrail_issues=state["guardrail_result"].get("issues", []) if state.get("guardrail_result") else [],
-            tone_score=state["guardrail_result"].get("tone_score", 100.0) if state.get("guardrail_result") else 100.0,
-            published_at=datetime.now()
-        )
-        db.add(jd_record)
-    
-    db.commit()
-    db.refresh(jd_record)
-    
-    sourcing_record = SourcingQueue(
-        role_brief_id=db_role_brief.id,
-        job_description_id=jd_record.id,
-        thread_id=thread_id,
-        status=SourcingQueueStatus.PENDING
+    version = state.get("version", 1)
+    guardrail = state.get("guardrail_result") or {}
+    jd_doc = db_ops.publish_job_description(
+        thread_id,
+        role_brief["_id"],
+        version,
+        final_jd_dict,
+        guardrail_passed=guardrail.get("passed", True),
+        guardrail_issues=guardrail.get("issues", []),
+        tone_score=guardrail.get("tone_score", 100.0),
     )
-    db.add(sourcing_record)
     
-    db_role_brief.status = RoleBriefStatus.PUBLISHED
-    db.commit()
+    db_ops.insert_sourcing_queue(role_brief["_id"], jd_doc["_id"], thread_id)
+    db_ops.update_role_brief_status(thread_id, RoleBriefStatus.PUBLISHED)
     
     state["status"] = "published"
-    
     return state

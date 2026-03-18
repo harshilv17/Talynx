@@ -1,8 +1,6 @@
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.postgres import PostgresSaver
 from feature1.state import Feature1State
 from feature1.nodes import validate_node, jd_generation_node, guardrail_node, review_node, publish_node
-from sqlalchemy.orm import Session
 
 
 def should_continue_after_validation(state: Feature1State) -> str:
@@ -31,16 +29,16 @@ def should_continue_after_review(state: Feature1State) -> str:
     return "review"
 
 
-def create_feature1_graph(db: Session, checkpointer: PostgresSaver = None):
+def create_feature1_graph(checkpointer=None):
     """Create and compile the Feature 1 LangGraph workflow."""
     
     workflow = StateGraph(Feature1State)
     
-    workflow.add_node("validate", lambda state: validate_node(state, db))
-    workflow.add_node("jd_generation", lambda state: jd_generation_node(state, db))
-    workflow.add_node("guardrail", lambda state: guardrail_node(state, db))
+    workflow.add_node("validate", validate_node)
+    workflow.add_node("jd_generation", jd_generation_node)
+    workflow.add_node("guardrail", guardrail_node)
     workflow.add_node("review", review_node)
-    workflow.add_node("publish", lambda state: publish_node(state, db))
+    workflow.add_node("publish", publish_node)
     
     workflow.set_entry_point("validate")
     

@@ -45,8 +45,22 @@ export function RoleBriefForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setError(null);
+
+    if (formData.must_have_skills.length === 0) {
+      setError("Please add at least one must-have skill.");
+      return;
+    }
+    if (!formData.salary_min || !formData.salary_max) {
+      setError("Please fill in both salary minimum and maximum.");
+      return;
+    }
+    if (formData.salary_max < formData.salary_min) {
+      setError("Salary maximum must be greater than or equal to minimum.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const payload = {
@@ -69,14 +83,21 @@ export function RoleBriefForm() {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to start job generation");
+        const errorData = await response.json().catch(() => ({}));
+        let message = "Failed to start job generation";
+        if (typeof errorData.detail === "string") {
+          message = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
+          message = errorData.detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ");
+        }
+        throw new Error(message);
       }
 
       const data = await response.json();
       router.push(`/review/${data.thread_id}`);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
       setIsSubmitting(false);
     }
   };
