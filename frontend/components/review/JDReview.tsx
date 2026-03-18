@@ -251,7 +251,7 @@ export function JDReview({ threadId }: JDReviewProps) {
           <CardContent className="pt-6">
             <div className="text-center space-y-4">
               <h2 className="text-2xl font-bold text-destructive">Generation Failed</h2>
-              <p className="text-slate-700">{status.error_message || "An unknown error occurred"}</p>
+              <p className="text-slate-700">{status?.error_message || "An unknown error occurred"}</p>
               <Button onClick={() => router.push("/new-role")}>
                 Start Over
               </Button>
