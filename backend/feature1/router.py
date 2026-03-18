@@ -65,28 +65,34 @@ def start_job_generation(
     background_tasks: BackgroundTasks,
 ):
     """Submit a role brief, immediately return a thread_id and kick off generation."""
-    thread_id = str(uuid.uuid4())
-    role_brief_data = role_brief_input.model_dump(mode="json")
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        thread_id = str(uuid.uuid4())
+        role_brief_data = role_brief_input.model_dump(mode="json")
 
-    db_ops.create_role_brief(thread_id, role_brief_data)
+        db_ops.create_role_brief(thread_id, role_brief_data)
 
-    initial_state: Feature1State = {
-        "thread_id": thread_id,
-        "role_brief": role_brief_data,
-        "validation_errors": None,
-        "jd_draft": None,
-        "guardrail_result": None,
-        "review_decision": None,
-        "edited_jd": None,
-        "feedback": None,
-        "version": 1,
-        "revision_count": 0,
-        "status": "validating",
-        "error_message": None,
-    }
+        initial_state: Feature1State = {
+            "thread_id": thread_id,
+            "role_brief": role_brief_data,
+            "validation_errors": None,
+            "jd_draft": None,
+            "guardrail_result": None,
+            "review_decision": None,
+            "edited_jd": None,
+            "feedback": None,
+            "version": 1,
+            "revision_count": 0,
+            "status": "validating",
+            "error_message": None,
+        }
 
-    background_tasks.add_task(run_graph_background, thread_id, initial_state)
-    return StartJobResponse(thread_id=thread_id, status="validating")
+        background_tasks.add_task(run_graph_background, thread_id, initial_state)
+        return StartJobResponse(thread_id=thread_id, status="validating")
+    except Exception as e:
+        logger.exception("Start job failed")
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 
 @router.get("/status/{thread_id}", response_model=StatusResponse)

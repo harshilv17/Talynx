@@ -32,7 +32,7 @@ class RoleBriefInput(BaseModel):
     work_type: WorkType
     location: str = Field(..., min_length=1)
     
-    must_have_skills: List[str] = Field(..., min_items=1)
+    must_have_skills: List[str] = Field(..., min_length=1)
     nice_to_have_skills: List[str] = Field(default_factory=list)
     
     salary_min: int = Field(..., gt=0)
