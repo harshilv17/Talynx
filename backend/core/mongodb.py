@@ -8,7 +8,12 @@ _client: MongoClient | None = None
 def get_mongo_client() -> MongoClient:
     global _client
     if _client is None:
-        _client = MongoClient(_settings.MONGODB_URI)
+        import certifi
+        # Use certifi CA bundle for TLS - helps with SSL handshake on some platforms (e.g. Render)
+        _client = MongoClient(
+            _settings.MONGODB_URI,
+            tlsCAFile=certifi.where(),
+        )
     return _client
 
 
