@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SkillTagInput } from "./SkillTagInput";
+import { getApiBaseUrl } from "@/lib/utils";
 import { SalaryBandInput } from "./SalaryBandInput";
 import { ToneSelector } from "./ToneSelector";
 import { Loader2, X } from "lucide-react";
@@ -72,7 +73,7 @@ export function RoleBriefForm() {
       };
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/feature1/start`,
+        `${getApiBaseUrl()}/api/v1/feature1/start`,
         {
           method: "POST",
           headers: {

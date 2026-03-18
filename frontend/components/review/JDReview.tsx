@@ -9,6 +9,7 @@ import { SuccessScreen } from "./SuccessScreen";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/utils";
 
 interface JDContent {
   job_title: string;
@@ -59,7 +60,7 @@ export function JDReview({ threadId }: JDReviewProps) {
     const fetchStatus = async () => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/feature1/status/${threadId}`
+          `${getApiBaseUrl()}/api/v1/feature1/status/${threadId}`
         );
         
         if (!response.ok) {
@@ -98,7 +99,7 @@ export function JDReview({ threadId }: JDReviewProps) {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/feature1/review/${threadId}`,
+        `${getApiBaseUrl()}/api/v1/feature1/review/${threadId}`,
         {
           method: "POST",
           headers: {
@@ -117,7 +118,7 @@ export function JDReview({ threadId }: JDReviewProps) {
 
       const interval = setInterval(async () => {
         const statusResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/feature1/status/${threadId}`
+          `${getApiBaseUrl()}/api/v1/feature1/status/${threadId}`
         );
         const statusData = await statusResponse.json();
         
@@ -142,7 +143,7 @@ export function JDReview({ threadId }: JDReviewProps) {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/feature1/review/${threadId}`,
+        `${getApiBaseUrl()}/api/v1/feature1/review/${threadId}`,
         {
           method: "POST",
           headers: {
@@ -162,7 +163,7 @@ export function JDReview({ threadId }: JDReviewProps) {
 
       const interval = setInterval(async () => {
         const statusResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/feature1/status/${threadId}`
+          `${getApiBaseUrl()}/api/v1/feature1/status/${threadId}`
         );
         const statusData = await statusResponse.json();
         
@@ -186,7 +187,7 @@ export function JDReview({ threadId }: JDReviewProps) {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/feature1/review/${threadId}`,
+        `${getApiBaseUrl()}/api/v1/feature1/review/${threadId}`,
         {
           method: "POST",
           headers: {
