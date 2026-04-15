@@ -51,3 +51,18 @@ export interface RoleBriefInput {
   context_note?: string;
   tone_preference: string;
 }
+
+export interface CandidateResult {
+  name: string;
+  skills: string[];
+  experience: number;
+  match_score: number;
+  resume_text: string;
+}
+
+export interface SourcingStatusResponse {
+  thread_id: string;
+  status: string;
+  shortlisted_candidates: CandidateResult[] | null;
+  error_message: string | null;
+}

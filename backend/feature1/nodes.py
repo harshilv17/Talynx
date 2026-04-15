@@ -1,13 +1,13 @@
 from typing import Dict, Any
 import json
 import time
-from openai import OpenAI
+from groq import Groq
 from feature1.state import Feature1State
 from feature1.schemas import JDContent, GuardrailResult, GuardrailIssue
 from feature1.prompts import get_jd_generation_prompt, get_guardrail_prompt, format_jd_for_guardrail
 from feature1.models import RoleBriefStatus, JDStatus
 from feature1 import db_ops
-from core.openai_client import get_openai_client
+from core.openai_client import get_groq_client
 from langgraph.types import interrupt
 
 
@@ -15,21 +15,24 @@ MAX_RETRIES = 2
 INITIAL_BACKOFF = 1
 
 
-def call_openai_with_retry(client: OpenAI, model: str, messages: list, max_retries: int = MAX_RETRIES) -> dict:
-    """Call OpenAI API with exponential backoff retry logic."""
+def call_groq_with_retry(client: Groq, model: str, messages: list, max_retries: int = MAX_RETRIES) -> dict:
+    """Call Groq API with exponential backoff retry logic."""
     
     for attempt in range(max_retries + 1):
         try:
             response = client.chat.completions.create(
                 model=model,
                 messages=messages,
-                response_format={"type": "json_object"}
             )
-            return json.loads(response.choices[0].message.content)
+            content = response.choices[0].message.content
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                raise Exception("Invalid JSON response from model")
         
         except Exception as e:
             if attempt == max_retries:
-                raise Exception(f"OpenAI API call failed after {max_retries + 1} attempts: {str(e)}")
+                raise Exception(f"Groq API call failed after {max_retries + 1} attempts: {str(e)}")
             
             backoff_time = INITIAL_BACKOFF * (2 ** attempt)
             time.sleep(backoff_time)
@@ -78,9 +81,9 @@ def validate_node(state: Feature1State) -> Feature1State:
 
 
 def jd_generation_node(state: Feature1State) -> Feature1State:
-    """Generate job description using GPT-4o."""
+    """Generate job description using Groq LLM."""
     
-    client = get_openai_client()
+    client = get_groq_client()
     role_brief = state["role_brief"]
     
     is_revision = state.get("revision_count", 0) > 0 and state.get("feedback") is not None
@@ -108,7 +111,7 @@ def jd_generation_node(state: Feature1State) -> Feature1State:
             {"role": "user", "content": "Generate the job description based on the role brief provided. Return only valid JSON."}
         ]
         
-        result = call_openai_with_retry(client, "gpt-4o", messages)
+        result = call_groq_with_retry(client, "llama-3.3-70b-versatile", messages)
         
         jd_content = JDContent(**result)
         state["jd_draft"] = jd_content.dict()
@@ -128,9 +131,9 @@ def jd_generation_node(state: Feature1State) -> Feature1State:
 
 
 def guardrail_node(state: Feature1State) -> Feature1State:
-    """Check JD for compliance issues using GPT-4o-mini."""
+    """Check JD for compliance issues using Groq LLM."""
     
-    client = get_openai_client()
+    client = get_groq_client()
     jd_draft = state["jd_draft"]
     
     if not jd_draft:
@@ -148,7 +151,7 @@ def guardrail_node(state: Feature1State) -> Feature1State:
             {"role": "user", "content": f"Review this job description:\n\n{formatted_jd}"}
         ]
         
-        result = call_openai_with_retry(client, "gpt-4o-mini", messages)
+        result = call_groq_with_retry(client, "llama-3.3-70b-versatile", messages)
         
         issues = [GuardrailIssue(**issue) for issue in result.get("issues", [])]
         corrected_jd = None

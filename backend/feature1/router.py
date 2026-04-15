@@ -44,13 +44,10 @@ def resume_graph_background(thread_id: str, decision_state: dict):
         config = {"configurable": {"thread_id": thread_id}}
         with get_checkpointer() as cp:
             graph = create_feature1_graph(cp)
-            checkpoint = cp.get(config)
-            if checkpoint:
-                channel_values = _get_channel_values(checkpoint)
-                if channel_values is not None:
-                    current = dict(channel_values)
-                    current.update(decision_state)
-                    graph.invoke(current, config)
+            # Inject the decision into the current checkpoint state,
+            # then resume from the interrupt point (not from scratch)
+            graph.update_state(config, decision_state)
+            graph.invoke(None, config)
     except Exception as e:
         db_ops.update_role_brief_status(thread_id, RoleBriefStatus.FAILED, str(e))
 
@@ -108,6 +105,32 @@ def get_status(thread_id: str):
     else:
         brief_status = brief_status.value if hasattr(brief_status, "value") else str(brief_status)
 
+    # Check DB first for terminal states — avoids stale checkpoint reads
+    if brief_status == RoleBriefStatus.PUBLISHED:
+        jd_rec = db_ops.get_job_description_by_thread_status(thread_id, JDStatus.PUBLISHED)
+        if jd_rec:
+            return StatusResponse(
+                thread_id=thread_id,
+                status="published",
+                jd_draft=JDContent(**jd_rec["jd_content"]),
+                guardrail_result=GuardrailResult(
+                    passed=bool(jd_rec.get("guardrail_passed")),
+                    issues=[GuardrailIssue(**i) for i in (jd_rec.get("guardrail_issues") or [])],
+                    corrected_jd=None,
+                    tone_score=jd_rec.get("tone_score") or 0.0,
+                ),
+                version=jd_rec.get("version", 1),
+                error_message=brief.get("error_message"),
+            )
+
+    if brief_status == RoleBriefStatus.FAILED:
+        return StatusResponse(
+            thread_id=thread_id,
+            status="failed",
+            error_message=brief.get("error_message"),
+        )
+
+    # For in-progress states, read checkpoint for live state
     config = {"configurable": {"thread_id": thread_id}}
 
     try:
@@ -140,25 +163,7 @@ def get_status(thread_id: str):
     except Exception:
         pass
 
-    # Fallback: when pending_review or checkpoint missing jd, use database
-    # Also handle PUBLISHED - once publish_node updates DB, return immediately (fixes "stuck" publish)
-    if brief_status == RoleBriefStatus.PUBLISHED:
-        jd_rec = db_ops.get_job_description_by_thread_status(thread_id, JDStatus.PUBLISHED)
-        if jd_rec:
-            return StatusResponse(
-                thread_id=thread_id,
-                status="published",
-                jd_draft=JDContent(**jd_rec["jd_content"]),
-                guardrail_result=GuardrailResult(
-                    passed=bool(jd_rec.get("guardrail_passed")),
-                    issues=[GuardrailIssue(**i) for i in (jd_rec.get("guardrail_issues") or [])],
-                    corrected_jd=None,
-                    tone_score=jd_rec.get("tone_score") or 0.0,
-                ),
-                version=jd_rec.get("version", 1),
-                error_message=brief.get("error_message"),
-            )
-
+    # Fallback: pending_review from DB
     if brief_status == RoleBriefStatus.PENDING_REVIEW:
         jd_rec = db_ops.get_job_description_by_thread_status(thread_id, JDStatus.PENDING_REVIEW)
         if jd_rec:

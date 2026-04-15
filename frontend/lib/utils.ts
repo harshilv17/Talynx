@@ -7,6 +7,6 @@ export function cn(...inputs: ClassValue[]) {
 
 /** API base URL without trailing slash (handles env var with/without slash) */
 export function getApiBaseUrl(): string {
-  const url = process.env.NEXT_PUBLIC_API_URL || ""
+  const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
   return url.replace(/\/+$/, "")
 }

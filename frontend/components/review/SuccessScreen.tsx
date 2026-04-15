@@ -1,16 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
-export function SuccessScreen() {
+interface SuccessScreenProps {
+  threadId: string;
+}
+
+export function SuccessScreen({ threadId }: SuccessScreenProps) {
   return (
     <div className="max-w-2xl mx-auto py-12">
       <Card className="shadow-lg">
@@ -29,24 +28,15 @@ export function SuccessScreen() {
           </div>
 
           <div className="pt-4">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="inline-block">
-                    <Button size="lg" disabled>
-                      Start sourcing candidates
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Coming soon in Feature 2</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Link href={`/sourcing/${threadId}`}>
+              <Button size="lg" id="start-sourcing-link">
+                Start sourcing candidates
+              </Button>
+            </Link>
           </div>
 
           <div className="text-xs text-muted-foreground">
-            Feature 2: Sourcing & Screening is coming soon
+            Feature 2: Sourcing &amp; Screening will find and rank the best candidates
           </div>
         </CardContent>
       </Card>

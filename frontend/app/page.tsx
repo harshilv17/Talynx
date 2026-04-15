@@ -41,7 +41,7 @@ export default function Home() {
             <CardDescription>Sourcing & Screening</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-slate-600">Coming soon</p>
+            <p className="text-sm text-slate-600">AI-powered candidate matching and ranking</p>
           </CardContent>
         </Card>
 

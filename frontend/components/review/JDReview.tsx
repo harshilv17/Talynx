@@ -242,7 +242,7 @@ export function JDReview({ threadId }: JDReviewProps) {
 
   const statusLower = status?.status?.toLowerCase?.() ?? "";
   if (statusLower === "published") {
-    return <SuccessScreen />;
+    return <SuccessScreen threadId={threadId} />;
   }
 
   if (statusLower === "failed") {
