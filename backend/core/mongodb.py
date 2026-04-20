@@ -36,3 +36,6 @@ def get_sourcing_queue():
 
 def get_shortlisted_candidates():
     return get_db()["shortlisted_candidates"]
+
+def get_sourcing_candidates():
+    return get_db()["sourcing_candidates"]

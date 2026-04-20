@@ -3,6 +3,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from feature2.state import Feature2State
 from feature2 import db_ops
+from feature1.db_ops import get_role_brief_by_thread
 from feature2.mock_candidates import MOCK_CANDIDATES
 from feature1.models import SourcingQueueStatus
 
@@ -36,6 +37,27 @@ def _get_embeddings(texts: list[str]) -> list[list[float]]:
     return _embedding_model.encode(texts).tolist()
 
 
+def screen_candidate(candidate: dict, role_brief: dict) -> tuple[str, str | None]:
+    """Screen candidate against JD requirements. Returns (status, rejection_reason)."""
+    # 1. Experience check
+    required_exp = role_brief.get("years_of_experience") or 0
+    candidate_exp = candidate.get("experience") or 0
+    
+    if candidate_exp < required_exp:
+        return "rejected", f"Experience ({candidate_exp} yrs) is less than required ({required_exp} yrs)"
+
+    # 2. Must-have skills check
+    must_haves = [s.lower() for s in role_brief.get("must_have_skills", [])]
+    cand_skills = [s.lower() for s in candidate.get("skills", [])]
+    
+    missing = [s for s in must_haves if not any(s in cs or cs in s for cs in cand_skills)]
+    
+    if missing:
+        return "rejected", f"Missing must-have skills: {', '.join(missing)}"
+        
+    return "pending", None
+
+
 def fetch_jd_node(state: Feature2State) -> Feature2State:
     print("[Feature2] Fetching JD...")
     thread_id = state["thread_id"]
@@ -45,8 +67,15 @@ def fetch_jd_node(state: Feature2State) -> Feature2State:
         state["status"] = "failed"
         state["error_message"] = "No published JD found for this thread"
         return state
+        
+    role_brief = get_role_brief_by_thread(thread_id)
+    if not role_brief:
+        state["status"] = "failed"
+        state["error_message"] = "No role brief found for this thread"
+        return state
 
     state["jd_content"] = jd_doc["jd_content"]
+    state["role_brief"] = role_brief
     state["status"] = "in_progress"
 
     db_ops.update_sourcing_queue_status(thread_id, SourcingQueueStatus.IN_PROGRESS)
@@ -126,13 +155,31 @@ def shortlist_node(state: Feature2State) -> Feature2State:
         return state
 
     thread_id = state["thread_id"]
-    top_n = 5
+    role_brief = state["role_brief"]
 
-    shortlisted = state["ranked_candidates"][:top_n]
-    state["shortlisted"] = shortlisted
+    candidate_docs = []
+    
+    for cand in state["ranked_candidates"]:
+        status, reason = screen_candidate(cand, role_brief)
+        
+        candidate_docs.append({
+            "job_id": thread_id,
+            "name": cand["name"],
+            "skills": cand["skills"],
+            "experience": cand["experience"],
+            "resume_text": cand["resume_text"],
+            "score": cand["match_score"],
+            "status": status,
+            "rejection_reason": reason
+        })
 
-    db_ops.insert_shortlisted_candidates(thread_id, shortlisted)
+    # Insert individual candidates into sourcing_candidates
+    db_ops.insert_sourcing_candidates(candidate_docs)
+    
     db_ops.update_sourcing_queue_status(thread_id, SourcingQueueStatus.COMPLETED)
 
+    # We don't need 'shortlisted' array anymore in state, but keeping for compatibility if needed.
+    # We will just fetch from API.
+    state["shortlisted"] = []
     state["status"] = "completed"
     return state

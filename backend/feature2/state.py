@@ -3,7 +3,7 @@ from typing import TypedDict, Optional, List
 
 class Feature2State(TypedDict):
     thread_id: str
-
+    role_brief: Optional[dict]
     jd_content: Optional[dict]
 
     candidates: Optional[List[dict]]
