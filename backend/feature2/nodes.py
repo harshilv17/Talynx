@@ -6,6 +6,7 @@ from feature2 import db_ops
 from feature1.db_ops import get_role_brief_by_thread
 from feature2.mock_candidates import MOCK_CANDIDATES
 from feature1.models import SourcingQueueStatus
+from feature2.sourcing import fetch_github_candidates
 
 
 _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -87,7 +88,16 @@ def fetch_candidates_node(state: Feature2State) -> Feature2State:
     if state.get("status") == "failed":
         return state
 
-    state["candidates"] = MOCK_CANDIDATES
+    try:
+        candidates = fetch_github_candidates(state.get("role_brief", {}))
+        if not candidates:
+            print("[Feature2] GitHub sourcing returned no candidates. Falling back to mock data.")
+            candidates = MOCK_CANDIDATES
+    except Exception as e:
+        print(f"[Feature2] Error fetching GitHub candidates: {e}. Falling back to mock data.")
+        candidates = MOCK_CANDIDATES
+
+    state["candidates"] = candidates
     return state
 
 

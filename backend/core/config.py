@@ -17,6 +17,7 @@ def _find_env_file() -> str:
 class Settings(BaseSettings):
     GROQ_API_KEY: str
     MONGO_URI: str
+    GITHUB_TOKEN: str | None = None
 
     model_config = {
         "env_file": _find_env_file(),
