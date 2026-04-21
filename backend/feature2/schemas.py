@@ -3,10 +3,13 @@ from typing import Optional, List
 
 
 class CandidateResult(BaseModel):
+    id: str  # mapped from _id
     name: str
     skills: List[str]
-    experience: int
-    match_score: float
+    experience: float
+    score: float
+    status: str
+    rejection_reason: Optional[str] = None
     resume_text: str
 
 
@@ -18,5 +21,15 @@ class StartSourcingResponse(BaseModel):
 class SourcingStatusResponse(BaseModel):
     thread_id: str
     status: str
-    shortlisted_candidates: Optional[List[CandidateResult]] = None
     error_message: Optional[str] = None
+
+
+class SourcingCandidatesResponse(BaseModel):
+    job_id: str
+    candidates: List[CandidateResult]
+
+
+class CandidateActionResponse(BaseModel):
+    success: bool
+    new_status: str
+    message: str

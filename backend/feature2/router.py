@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 
-from feature2.schemas import StartSourcingResponse, SourcingStatusResponse, CandidateResult
+from feature2.schemas import (
+    StartSourcingResponse, SourcingStatusResponse, 
+    CandidateResult, SourcingCandidatesResponse, CandidateActionResponse
+)
 from feature2.state import Feature2State
 from feature2.graph import create_feature2_graph
 from feature2 import db_ops
@@ -71,24 +74,9 @@ def get_sourcing_status(thread_id: str):
     current_status = sourcing_entry.get("status", SourcingQueueStatus.PENDING)
 
     if current_status == SourcingQueueStatus.COMPLETED:
-        shortlisted_doc = db_ops.get_shortlisted_by_thread(thread_id)
-        candidates = []
-        if shortlisted_doc and shortlisted_doc.get("candidates"):
-            candidates = [
-                CandidateResult(
-                    name=c["name"],
-                    skills=c["skills"],
-                    experience=c["experience"],
-                    match_score=c["match_score"],
-                    resume_text=c["resume_text"],
-                )
-                for c in shortlisted_doc["candidates"]
-            ]
-
         return SourcingStatusResponse(
             thread_id=thread_id,
             status="completed",
-            shortlisted_candidates=candidates,
         )
 
     status_map = {
@@ -99,4 +87,51 @@ def get_sourcing_status(thread_id: str):
     return SourcingStatusResponse(
         thread_id=thread_id,
         status=status_map.get(current_status, current_status),
+    )
+
+
+@router.get("/candidates", response_model=SourcingCandidatesResponse)
+def get_sourcing_candidates(job_id: str):
+    """Fetch all sourced candidates for a given job."""
+    db_candidates = db_ops.get_sourcing_candidates_by_job(job_id)
+    
+    candidates = []
+    for c in db_candidates:
+        candidates.append(CandidateResult(
+            id=str(c["_id"]),
+            name=c["name"],
+            skills=c.get("skills", []),
+            experience=c.get("experience", 0),
+            score=c.get("score", 0),
+            status=c.get("status", "pending"),
+            rejection_reason=c.get("rejection_reason"),
+            resume_text=c.get("resume_text", ""),
+        ))
+        
+    return SourcingCandidatesResponse(job_id=job_id, candidates=candidates)
+
+
+@router.post("/candidate/{candidate_id}/{action}", response_model=CandidateActionResponse)
+def update_candidate_action(candidate_id: str, action: str):
+    """Update a candidate's status (shortlist, reject, save)."""
+    valid_actions = {"shortlist", "reject", "save"}
+    if action not in valid_actions:
+        raise HTTPException(status_code=400, detail=f"Invalid action. Must be one of {valid_actions}")
+        
+    new_status = action
+    if action == "shortlist":
+        new_status = "shortlisted"
+    elif action == "save":
+        new_status = "saved"
+    elif action == "reject":
+        new_status = "rejected"
+        
+    updated = db_ops.update_candidate_status(candidate_id, new_status)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+        
+    return CandidateActionResponse(
+        success=True,
+        new_status=new_status,
+        message=f"Candidate marked as {new_status}"
     )

@@ -1,12 +1,14 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { CandidateResult } from "@/lib/types";
 
 interface CandidateCardProps {
   candidate: CandidateResult;
   rank: number;
+  onAction?: (candidateId: string, action: string) => void;
 }
 
 function getScoreColor(score: number): string {
@@ -21,23 +23,35 @@ function getScoreBg(score: number): string {
   return "from-red-50 to-orange-50 border-red-200";
 }
 
-export function CandidateCard({ candidate, rank }: CandidateCardProps) {
+function getStatusBadge(status: string) {
+  switch (status.toLowerCase()) {
+    case 'shortlisted': return <Badge variant="default" className="bg-green-600 hover:bg-green-700">Shortlisted</Badge>;
+    case 'rejected': return <Badge variant="destructive">Rejected</Badge>;
+    case 'saved': return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Saved</Badge>;
+    default: return <Badge variant="outline" className="text-slate-500">Pending</Badge>;
+  }
+}
+
+export function CandidateCard({ candidate, rank, onAction }: CandidateCardProps) {
   return (
-    <Card className={`shadow-md hover:shadow-lg transition-all duration-200 bg-gradient-to-br ${getScoreBg(candidate.match_score)}`}>
+    <Card className={`shadow-md hover:shadow-lg transition-all duration-200 bg-gradient-to-br ${getScoreBg(candidate.score)} flex flex-col`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
               {rank}
             </div>
-            <CardTitle className="text-lg">{candidate.name}</CardTitle>
+            <div className="flex flex-col">
+                <CardTitle className="text-lg">{candidate.name}</CardTitle>
+                <div className="mt-1">{getStatusBadge(candidate.status)}</div>
+            </div>
           </div>
-          <div className={`px-3 py-1 rounded-full text-sm font-bold border ${getScoreColor(candidate.match_score)}`}>
-            {candidate.match_score}%
+          <div className={`px-3 py-1 rounded-full text-sm font-bold border ${getScoreColor(candidate.score)}`}>
+            {candidate.score}%
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 flex-1">
         <div className="flex items-center gap-2 text-sm text-slate-600">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
@@ -57,7 +71,42 @@ export function CandidateCard({ candidate, rank }: CandidateCardProps) {
         <p className="text-sm text-slate-600 leading-relaxed line-clamp-3">
           {candidate.resume_text}
         </p>
+
+        {candidate.status === 'rejected' && candidate.rejection_reason && (
+          <div className="mt-2 p-2 bg-red-50 border border-red-100 rounded-md text-xs text-red-800">
+            <strong>Rejection Reason:</strong> {candidate.rejection_reason}
+          </div>
+        )}
       </CardContent>
+      <CardFooter className="flex justify-between items-center pt-2 pb-4 px-6 border-t border-slate-100/50">
+        <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            onClick={() => onAction?.(candidate.id, 'reject')}
+            disabled={candidate.status === 'rejected'}
+        >
+            Reject
+        </Button>
+        <div className="flex gap-2">
+            <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onAction?.(candidate.id, 'save')}
+                disabled={candidate.status === 'saved'}
+            >
+                Save
+            </Button>
+            <Button 
+                size="sm" 
+                className="bg-primary"
+                onClick={() => onAction?.(candidate.id, 'shortlist')}
+                disabled={candidate.status === 'shortlisted'}
+            >
+                Shortlist
+            </Button>
+        </div>
+      </CardFooter>
     </Card>
   );
 }

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CandidateCard } from "./CandidateCard";
 import { Loader2, Search, Users, CheckCircle, AlertCircle } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/utils";
-import type { SourcingStatusResponse } from "@/lib/types";
+import type { SourcingStatusResponse, CandidateResult } from "@/lib/types";
 
 interface SourcingViewProps {
   threadId: string;
@@ -16,15 +16,29 @@ const STEPS = [
   "Fetching published job description…",
   "Loading candidate profiles…",
   "Generating semantic embeddings…",
-  "Ranking candidates by relevance…",
-  "Preparing your shortlist…",
+  "Ranking and Filtering candidates by relevance…",
+  "Preparing the initial pipeline…",
 ];
 
 export function SourcingView({ threadId }: SourcingViewProps) {
   const [status, setStatus] = useState<SourcingStatusResponse | null>(null);
+  const [candidates, setCandidates] = useState<CandidateResult[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("pending");
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
+
+  const fetchCandidates = useCallback(async () => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/feature2/candidates?job_id=${threadId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCandidates(data.candidates || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch candidates", e);
+    }
+  }, [threadId]);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -37,12 +51,15 @@ export function SourcingView({ threadId }: SourcingViewProps) {
       }
       const data: SourcingStatusResponse = await response.json();
       setStatus(data);
+      if (data.status === "completed") {
+        fetchCandidates();
+      }
       return data;
     } catch (err: any) {
       setError(err.message);
       return null;
     }
-  }, [threadId]);
+  }, [threadId, fetchCandidates]);
 
   useEffect(() => {
     fetchStatus();
@@ -81,7 +98,7 @@ export function SourcingView({ threadId }: SourcingViewProps) {
         throw new Error(data.detail || "Failed to start sourcing");
       }
 
-      setStatus({ thread_id: threadId, status: "in_progress", shortlisted_candidates: null, error_message: null });
+      setStatus({ thread_id: threadId, status: "in_progress", error_message: null });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -89,8 +106,29 @@ export function SourcingView({ threadId }: SourcingViewProps) {
     }
   };
 
+  const handleCandidateAction = async (candidateId: string, action: string) => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/feature2/candidate/${candidateId}/${action}`, {
+        method: "POST"
+      });
+      if (!response.ok) throw new Error("Failed to update candidate");
+      
+      const data = await response.json();
+      
+      // Update local state
+      setCandidates(prev => 
+        prev.map(c => c.id === candidateId ? { ...c, status: data.new_status } : c)
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update candidate status");
+    }
+  };
+
+  const filteredCandidates = candidates.filter(c => c.status === activeTab);
+
   if (status?.status === "completed") {
-    if (!status.shortlisted_candidates || status.shortlisted_candidates.length === 0) {
+    if (!candidates || candidates.length === 0) {
       return (
         <div className="max-w-2xl mx-auto py-12">
           <Card className="shadow-lg">
@@ -112,8 +150,15 @@ export function SourcingView({ threadId }: SourcingViewProps) {
       );
     }
 
+    const counts = {
+      pending: candidates.filter(c => c.status === "pending").length,
+      shortlisted: candidates.filter(c => c.status === "shortlisted").length,
+      saved: candidates.filter(c => c.status === "saved").length,
+      rejected: candidates.filter(c => c.status === "rejected").length,
+    };
+
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6 mb-12">
         <div className="text-center space-y-2 mb-8">
           <div className="flex justify-center mb-4">
             <div className="rounded-full bg-green-100 p-4">
@@ -122,19 +167,58 @@ export function SourcingView({ threadId }: SourcingViewProps) {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Sourcing Complete</h1>
           <p className="text-slate-600">
-            Top {status.shortlisted_candidates.length} candidates matched to your job description
+            {candidates.length} candidates matched and screened against your job description
           </p>
         </div>
 
-        <div className="space-y-4">
-          {status.shortlisted_candidates.map((candidate, index) => (
-            <CandidateCard
-              key={candidate.name}
-              candidate={candidate}
-              rank={index + 1}
-            />
-          ))}
+        {/* Custom Tabs */}
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-8 border-b pb-4">
+          <Button 
+            variant={activeTab === "pending" ? "default" : "outline"} 
+            className="rounded-full" 
+            onClick={() => setActiveTab("pending")}
+          >
+            Pending Review ({counts.pending})
+          </Button>
+          <Button 
+            variant={activeTab === "shortlisted" ? "default" : "outline"} 
+            className="rounded-full"
+            onClick={() => setActiveTab("shortlisted")}
+          >
+            Shortlisted ({counts.shortlisted})
+          </Button>
+          <Button 
+            variant={activeTab === "saved" ? "default" : "outline"} 
+            className="rounded-full"
+            onClick={() => setActiveTab("saved")}
+          >
+            Saved ({counts.saved})
+          </Button>
+          <Button 
+            variant={activeTab === "rejected" ? "default" : "outline"} 
+            className="rounded-full"
+            onClick={() => setActiveTab("rejected")}
+          >
+            Rejected ({counts.rejected})
+          </Button>
         </div>
+
+        {filteredCandidates.length === 0 ? (
+          <div className="text-center p-12 border border-dashed rounded-lg bg-slate-50 text-slate-500">
+            No candidates found in this category.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+            {filteredCandidates.map((candidate, index) => (
+              <CandidateCard
+                key={candidate.id}
+                candidate={candidate}
+                rank={index + 1}
+                onAction={handleCandidateAction}
+              />
+            ))}
+          </div>
+        )}
       </div>
     );
   }
