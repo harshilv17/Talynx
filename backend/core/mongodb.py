@@ -6,20 +6,28 @@ _client: MongoClient | None = None
 
 
 def get_mongo_client() -> MongoClient:
-    """Return a single shared MongoClient with TLS config for Atlas."""
+    """Return a single shared MongoClient.
+
+    TLS is enabled only for Atlas (mongodb+srv:// URIs); local instances skip it.
+    """
     global _client
     if _client is None:
-        _client = MongoClient(
-            _settings.MONGO_URI,
-            tls=True,
-            tlsAllowInvalidCertificates=True,
-            serverSelectionTimeoutMS=30000,
-        )
+        uri = _settings.MONGO_URI
+        use_tls = uri.startswith("mongodb+srv://")
+        kwargs: dict = {"serverSelectionTimeoutMS": 30000}
+        if use_tls:
+            kwargs["tls"] = True
+            kwargs["tlsAllowInvalidCertificates"] = True
+        _client = MongoClient(uri, **kwargs)
     return _client
 
 
 def get_db():
-    return get_mongo_client()["talynx"]
+    # Local instance uses "Talynx"; Atlas cluster uses "talynx".
+    # Detect by URI scheme to stay consistent with whichever is in use.
+    uri = _settings.MONGO_URI
+    db_name = "talynx" if uri.startswith("mongodb+srv://") else "Talynx"
+    return get_mongo_client()[db_name]
 
 
 def get_role_briefs():

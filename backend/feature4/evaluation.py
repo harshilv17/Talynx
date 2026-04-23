@@ -1,22 +1,15 @@
-"""Feature 4 – Phase 1: Evaluation Scorecard.
+"""Feature 4 – Phase 1: Evaluation Scorecard (compute_final_score).
 
-Produces a structured, deterministic scorecard for a candidate against a
-job description (role_brief).  No LLM is used; all scores are computed
-from structured fields already present in the candidate and JD documents.
+Produces a deterministic scorecard for a candidate against a job description.
+Weights: technical 30%, experience 20%, skill_match 20%, interview 30%.
 """
 
 
 def _clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:
-    """Clamp a value to [lo, hi]."""
     return max(lo, min(hi, value))
 
 
 def _technical_score(candidate: dict) -> float:
-    """
-    Normalise the existing cosine-similarity match_score (0–100) to the
-    same 0–100 range.  The field is already stored as a percentage by the
-    ranking node, so we just clamp it for safety.
-    """
     raw = candidate.get("score") or candidate.get("match_score") or 0.0
     try:
         raw = float(raw)
@@ -26,13 +19,6 @@ def _technical_score(candidate: dict) -> float:
 
 
 def _experience_score(candidate: dict, jd: dict) -> float:
-    """
-    Score how well the candidate's experience meets the JD requirement.
-
-    * Meets or exceeds requirement → 100
-    * Below requirement → linearly scaled (0 if 0 years, proportional otherwise)
-    * No JD requirement → full marks (not penalised)
-    """
     required = jd.get("years_of_experience") or 0
     try:
         required = float(required)
@@ -55,14 +41,9 @@ def _experience_score(candidate: dict, jd: dict) -> float:
 
 
 def _skill_match_score(candidate: dict, jd: dict) -> float:
-    """
-    Percentage of JD must-have skills present in the candidate's skill set.
-    Matching is case-insensitive and uses substring containment so that
-    e.g. "React" matches "ReactJS".
-    """
     must_haves = [s.lower().strip() for s in jd.get("must_have_skills", []) if s]
     if not must_haves:
-        return 100.0  # No requirements → full marks
+        return 100.0
 
     cand_skills = [s.lower().strip() for s in candidate.get("skills", []) if s]
     if not cand_skills:
@@ -76,15 +57,24 @@ def _skill_match_score(candidate: dict, jd: dict) -> float:
     return _clamp((matched / len(must_haves)) * 100.0)
 
 
+def _interview_score(candidate: dict) -> float:
+    raw = candidate.get("interview_score") or 0.0
+    try:
+        raw = float(raw)
+    except (TypeError, ValueError):
+        raw = 0.0
+    return _clamp(raw)
+
+
 def _build_summary(
     technical: float,
     experience: float,
     skill_match: float,
+    interview: float,
     overall: float,
     candidate: dict,
     jd: dict,
 ) -> str:
-    """Return a human-readable, single-paragraph evaluation summary."""
     name = candidate.get("name", "The candidate")
     role = jd.get("job_title") or jd.get("role") or "the role"
     required_exp = jd.get("years_of_experience") or 0
@@ -99,63 +89,58 @@ def _build_summary(
 
     lines = [
         f"{name} was evaluated for {role}.",
-        f"Technical fit score: {technical:.1f}/100 (based on JD similarity ranking).",
+        f"Technical fit score: {technical:.1f}/100.",
         f"Experience score: {experience:.1f}/100 "
         f"({candidate_exp} yr(s) vs {required_exp} yr(s) required).",
         f"Skill match score: {skill_match:.1f}/100"
         + (f" — missing skills: {', '.join(missing)}." if missing else " — all must-have skills matched."),
+        f"Interview score: {interview:.1f}/100"
+        + (" — no interview data recorded." if interview == 0.0 and not candidate.get("interview_score") else "."),
         f"Overall score: {overall:.1f}/100.",
     ]
 
     if overall >= 75:
-        lines.append("Recommendation: Strong candidate — recommend advancing to the next stage.")
+        lines.append("Recommendation: Strong candidate — recommend advancing to offer stage.")
     elif overall >= 50:
-        lines.append("Recommendation: Moderate fit — consider for further review.")
+        lines.append("Recommendation: Moderate fit — recommend human review before decision.")
     else:
-        lines.append("Recommendation: Below threshold — may not meet minimum requirements.")
+        lines.append("Recommendation: Below threshold — does not meet minimum requirements.")
 
     return " ".join(lines)
 
 
-def evaluate_candidate(candidate: dict, jd: dict) -> dict:
+def compute_final_score(candidate: dict, jd: dict) -> dict:
     """
     Compute a structured evaluation scorecard for *candidate* against *jd*.
 
-    Parameters
-    ----------
-    candidate : dict
-        Candidate document from MongoDB (must contain at least ``score``,
-        ``experience``, and ``skills``).
-    jd : dict
-        Role-brief / JD document (used for ``years_of_experience`` and
-        ``must_have_skills``).
+    Weights: technical 30%, experience 20%, skill_match 20%, interview 30%.
 
-    Returns
-    -------
-    dict with keys:
-        technical_score    – float 0-100
-        experience_score   – float 0-100
-        skill_match_score  – float 0-100
-        overall_score      – float 0-100
-        summary            – str
+    Returns dict with: technical_score, experience_score, skill_match_score,
+    interview_score, overall_score, summary.
     """
     technical   = _technical_score(candidate)
     experience  = _experience_score(candidate, jd)
     skill_match = _skill_match_score(candidate, jd)
+    interview   = _interview_score(candidate)
 
-    # Weighted combination: 50% technical, 30% experience, 20% skills
     overall = _clamp(
-        technical   * 0.50
-        + experience  * 0.30
+        technical   * 0.30
+        + experience  * 0.20
         + skill_match * 0.20
+        + interview   * 0.30
     )
 
-    summary = _build_summary(technical, experience, skill_match, overall, candidate, jd)
+    summary = _build_summary(technical, experience, skill_match, interview, overall, candidate, jd)
 
     return {
         "technical_score":   round(technical,   2),
         "experience_score":  round(experience,  2),
         "skill_match_score": round(skill_match, 2),
+        "interview_score":   round(interview,   2),
         "overall_score":     round(overall,     2),
         "summary":           summary,
     }
+
+
+# Backwards-compatible alias
+evaluate_candidate = compute_final_score

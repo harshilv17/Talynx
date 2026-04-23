@@ -42,18 +42,31 @@ def get_sourcing_candidates_by_job(job_id: str) -> list[dict]:
 
 
 def update_candidate_status(candidate_id: str, new_status: str) -> dict | None:
-    """Update a candidate's status natively using ObjectId."""
+    """
+    Update a candidate's status after validating the transition is allowed.
+
+    Raises ValueError if the transition violates the state machine.
+    Returns None if the candidate is not found.
+    """
     from pymongo import ReturnDocument
+    from feature4.states import assert_valid_transition
+
     try:
         oid = ObjectId(candidate_id)
     except Exception:
         return None
-        
+
+    candidate = get_sourcing_candidates().find_one({"_id": oid}, {"status": 1})
+    if not candidate:
+        return None
+
+    assert_valid_transition(candidate.get("status", ""), new_status)
+
     return get_sourcing_candidates().find_one_and_update(
         {"_id": oid},
         {"$set": {
-            "status": new_status,
+            "status":     new_status,
             "updated_at": datetime.utcnow(),
         }},
-        return_document=ReturnDocument.AFTER
+        return_document=ReturnDocument.AFTER,
     )
