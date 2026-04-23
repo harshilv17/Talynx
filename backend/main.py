@@ -13,6 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from feature1.router import router as feature1_router
 from feature2.router import router as feature2_router
+from feature4.router import router as feature4_router
 
 app = FastAPI(
 
@@ -48,6 +49,7 @@ class NormalizePathMiddleware(BaseHTTPMiddleware):
 app.add_middleware(NormalizePathMiddleware)
 app.include_router(feature1_router)
 app.include_router(feature2_router)
+app.include_router(feature4_router)
 
 
 @app.get("/")
