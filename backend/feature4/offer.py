@@ -49,3 +49,4 @@ def send_offer_email(candidate_name: str, offer_text: str):
     """
     print(f"Sending offer to {candidate_name}")
     print(offer_text)
+    
