@@ -8,6 +8,7 @@ from feature2.mock_candidates import MOCK_CANDIDATES
 from feature1.models import SourcingQueueStatus
 from feature2.sourcing import fetch_github_candidates
 from feature4.evaluation import evaluate_candidate
+from feature4.decision import generate_decision
 
 
 _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -179,6 +180,12 @@ def shortlist_node(state: Feature2State) -> Feature2State:
             role_brief,
         )
 
+        # Phase 2 – Hire / No-Hire Decision Engine (feature4)
+        decision = generate_decision({
+            "status": status,
+            "evaluation": evaluation,
+        })
+
         candidate_docs.append({
             "job_id": thread_id,
             "name": cand["name"],
@@ -189,6 +196,7 @@ def shortlist_node(state: Feature2State) -> Feature2State:
             "status": status,
             "rejection_reason": reason,
             "evaluation": evaluation,
+            "decision": decision,
         })
 
     # Insert individual candidates into sourcing_candidates
