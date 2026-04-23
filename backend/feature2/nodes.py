@@ -7,6 +7,9 @@ from feature1.db_ops import get_role_brief_by_thread
 from feature2.mock_candidates import MOCK_CANDIDATES
 from feature1.models import SourcingQueueStatus
 from feature2.sourcing import fetch_github_candidates
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -27,9 +30,9 @@ def _jd_to_text(jd: dict) -> str:
         jd.get("job_title", ""),
         jd.get("tagline", ""),
         jd.get("about_role", ""),
-        " ".join(jd.get("responsibilities", [])),
-        " ".join(jd.get("requirements", [])),
-        " ".join(jd.get("nice_to_haves", [])),
+        " ".join(jd.get("responsibilities") or []),
+        " ".join(jd.get("requirements") or []),
+        " ".join(jd.get("nice_to_haves") or []),
     ]
     return " ".join(p for p in parts if p)
 
@@ -91,10 +94,10 @@ def fetch_candidates_node(state: Feature2State) -> Feature2State:
     try:
         candidates = fetch_github_candidates(state.get("role_brief", {}))
         if not candidates:
-            print("[Feature2] GitHub sourcing returned no candidates. Falling back to mock data.")
+            logger.warning("[Feature2] GitHub sourcing returned no candidates. Falling back to mock data.")
             candidates = MOCK_CANDIDATES
     except Exception as e:
-        print(f"[Feature2] Error fetching GitHub candidates: {e}. Falling back to mock data.")
+        logger.warning(f"[Feature2] Error fetching GitHub candidates: {e}. Falling back to mock data.")
         candidates = MOCK_CANDIDATES
 
     state["candidates"] = candidates
@@ -151,10 +154,10 @@ def ranking_node(state: Feature2State) -> Feature2State:
             "skills": cand["skills"],
             "experience": cand["experience"],
             "resume_text": cand["resume_text"],
-            "match_score": round(score * 100, 2),
+            "score": round(score * 100, 2),
         })
 
-    ranked.sort(key=lambda x: x["match_score"], reverse=True)
+    ranked.sort(key=lambda x: x["score"], reverse=True)
     state["ranked_candidates"] = ranked
     return state
 
@@ -178,7 +181,7 @@ def shortlist_node(state: Feature2State) -> Feature2State:
             "skills": cand["skills"],
             "experience": cand["experience"],
             "resume_text": cand["resume_text"],
-            "score": cand["match_score"],
+            "score": cand["score"],
             "status": status,
             "rejection_reason": reason
         })
