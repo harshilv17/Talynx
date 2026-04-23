@@ -7,6 +7,7 @@ from feature1.db_ops import get_role_brief_by_thread
 from feature2.mock_candidates import MOCK_CANDIDATES
 from feature1.models import SourcingQueueStatus
 from feature2.sourcing import fetch_github_candidates
+from feature4.evaluation import evaluate_candidate
 
 
 _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -171,7 +172,13 @@ def shortlist_node(state: Feature2State) -> Feature2State:
     
     for cand in state["ranked_candidates"]:
         status, reason = screen_candidate(cand, role_brief)
-        
+
+        # Phase 1 – Evaluation Scorecard (feature4)
+        evaluation = evaluate_candidate(
+            {**cand, "score": cand.get("match_score", 0)},
+            role_brief,
+        )
+
         candidate_docs.append({
             "job_id": thread_id,
             "name": cand["name"],
@@ -180,7 +187,8 @@ def shortlist_node(state: Feature2State) -> Feature2State:
             "resume_text": cand["resume_text"],
             "score": cand["match_score"],
             "status": status,
-            "rejection_reason": reason
+            "rejection_reason": reason,
+            "evaluation": evaluation,
         })
 
     # Insert individual candidates into sourcing_candidates
