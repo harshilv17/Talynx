@@ -14,3 +14,9 @@ class EvaluationCandidate(BaseModel):
 class EvaluationResponse(BaseModel):
     job_id: str
     candidates: List[EvaluationCandidate]
+
+
+class OfferResponse(BaseModel):
+    success: bool
+    message: str
+    offer_text: str

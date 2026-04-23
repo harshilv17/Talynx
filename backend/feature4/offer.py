@@ -41,3 +41,11 @@ Talent Acquisition Team
 {company_name}
 """
     return offer_letter
+
+
+def send_offer_email(candidate_name: str, offer_text: str):
+    """
+    Simulate sending an offer email to the candidate.
+    """
+    print(f"Sending offer to {candidate_name}")
+    print(offer_text)
