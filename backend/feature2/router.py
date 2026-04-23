@@ -49,6 +49,7 @@ def start_sourcing(thread_id: str, background_tasks: BackgroundTasks):
 
     initial_state: Feature2State = {
         "thread_id": thread_id,
+        "role_brief": None,
         "jd_content": None,
         "candidates": None,
         "jd_embedding": None,
@@ -126,12 +127,16 @@ def update_candidate_action(candidate_id: str, action: str):
     elif action == "reject":
         new_status = "rejected"
         
-    updated = db_ops.update_candidate_status(candidate_id, new_status)
+    try:
+        updated = db_ops.update_candidate_status(candidate_id, new_status)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     if not updated:
         raise HTTPException(status_code=404, detail="Candidate not found")
-        
+
     return CandidateActionResponse(
         success=True,
         new_status=new_status,
-        message=f"Candidate marked as {new_status}"
+        message=f"Candidate marked as {new_status}",
     )
