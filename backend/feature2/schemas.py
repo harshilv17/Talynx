@@ -11,6 +11,7 @@ class CandidateResult(BaseModel):
     status: str
     rejection_reason: Optional[str] = None
     resume_text: str
+    source: Optional[str] = "github"
 
 
 class StartSourcingResponse(BaseModel):

@@ -61,6 +61,7 @@ export interface CandidateResult {
   status: string;
   rejection_reason?: string;
   resume_text: string;
+  source?: string;
 }
 
 export interface SourcingStatusResponse {

@@ -123,6 +123,9 @@ def fetch_candidates_node(state: Feature2State) -> Feature2State:
         logger.warning(f"[Feature2] Error fetching GitHub candidates: {e}. Falling back to demo data.")
         candidates = demo_candidates
 
+    import random
+    random.shuffle(candidates)
+
     state["candidates"] = candidates
     return state
 
