@@ -1,4 +1,6 @@
-const API_BASE = "http://localhost:8000/api/v1/feature4";
+import { getApiBaseUrl } from "../lib/utils";
+
+const API_BASE = `${getApiBaseUrl()}/api/v1/feature4`;
 
 export interface EvaluationCandidate {
   id: string;

@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 
 from feature2.schemas import (
     StartSourcingResponse, SourcingStatusResponse, 
-    CandidateResult, SourcingCandidatesResponse, CandidateActionResponse
+    CandidateResult, SourcingCandidatesResponse, CandidateActionResponse,
+    CandidateActionRequest
 )
 from feature2.state import Feature2State
 from feature2.graph import create_feature2_graph
@@ -113,19 +114,21 @@ def get_sourcing_candidates(job_id: str):
 
 
 @router.post("/candidate/{candidate_id}/{action}", response_model=CandidateActionResponse)
-def update_candidate_action(candidate_id: str, action: str):
+def update_candidate_action(candidate_id: str, action: str, payload: CandidateActionRequest = None):
     """Update a candidate's status (shortlist, reject, save)."""
+    print(f"[DEBUG] Received CandidateActionRequest: {payload}")
     valid_actions = {"shortlist", "reject", "save"}
     if action not in valid_actions:
         raise HTTPException(status_code=400, detail=f"Invalid action. Must be one of {valid_actions}")
         
-    new_status = action
-    if action == "shortlist":
-        new_status = "shortlisted"
-    elif action == "save":
-        new_status = "saved"
-    elif action == "reject":
-        new_status = "rejected"
+    new_status = payload.status if payload else action
+    if not payload:
+        if action == "shortlist":
+            new_status = "shortlisted"
+        elif action == "save":
+            new_status = "saved"
+        elif action == "reject":
+            new_status = "rejected"
         
     try:
         updated = db_ops.update_candidate_status(candidate_id, new_status)
@@ -140,3 +143,20 @@ def update_candidate_action(candidate_id: str, action: str):
         new_status=new_status,
         message=f"Candidate marked as {new_status}",
     )
+
+from pydantic import BaseModel
+
+class CompleteSourcingRequest(BaseModel):
+    job_id: str
+
+@router.post("/complete")
+def complete_sourcing(request: CompleteSourcingRequest):
+    """Transition to Feature 3 by completing Feature 2."""
+    candidates = db_ops.get_sourcing_candidates_by_job(request.job_id)
+    shortlisted = [c for c in candidates if c.get("status") == "shortlisted"]
+    
+    return {
+        "next": "/feature3/outreach",
+        "count": len(shortlisted)
+    }
+

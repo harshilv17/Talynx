@@ -22,7 +22,7 @@ _TRANSITIONS: dict[CandidateStatus, set[CandidateStatus]] = {
     CandidateStatus.INTERVIEWED:  {CandidateStatus.EVALUATED, CandidateStatus.REJECTED},
     CandidateStatus.EVALUATED:    {CandidateStatus.CONTACTED, CandidateStatus.OFFERED, CandidateStatus.REJECTED},
     CandidateStatus.OFFERED:      {CandidateStatus.REJECTED},
-    CandidateStatus.REJECTED:     set(),
+    CandidateStatus.REJECTED:     {CandidateStatus.SHORTLISTED, CandidateStatus.SAVED},
 }
 
 # Statuses from which evaluation is permitted

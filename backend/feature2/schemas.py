@@ -33,3 +33,6 @@ class CandidateActionResponse(BaseModel):
     success: bool
     new_status: str
     message: str
+
+class CandidateActionRequest(BaseModel):
+    status: str

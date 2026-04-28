@@ -42,6 +42,19 @@ def _get_embeddings(texts: list[str]) -> list[list[float]]:
     return _embedding_model.encode(texts).tolist()
 
 
+def _normalize_skill(skill: str) -> str:
+    """Normalize a skill string by lowercasing, stripping, and applying aliases."""
+    s = skill.lower().strip()
+    aliases = {
+        "node": "nodejs",
+        "node.js": "nodejs",
+        "react": "reactjs",
+        "react.js": "reactjs",
+        "js": "javascript",
+        "ts": "typescript"
+    }
+    return aliases.get(s, s)
+
 def screen_candidate(candidate: dict, role_brief: dict) -> tuple[str, str | None]:
     """Screen candidate against JD requirements. Returns (status, rejection_reason)."""
     # 1. Experience check
@@ -52,10 +65,14 @@ def screen_candidate(candidate: dict, role_brief: dict) -> tuple[str, str | None
         return "rejected", f"Experience ({candidate_exp} yrs) is less than required ({required_exp} yrs)"
 
     # 2. Must-have skills check
-    must_haves = [s.lower() for s in role_brief.get("must_have_skills", [])]
-    cand_skills = [s.lower() for s in candidate.get("skills", [])]
+    must_haves = {_normalize_skill(s) for s in role_brief.get("must_have_skills", [])}
+    cand_skills = {_normalize_skill(s) for s in candidate.get("skills", [])}
     
-    missing = [s for s in must_haves if not any(s in cs or cs in s for cs in cand_skills)]
+    # We allow partial match if normalized skill is contained within candidate skill, e.g. "python" in "python3"
+    missing = []
+    for mh in must_haves:
+        if not any(mh in cs or cs in mh for cs in cand_skills):
+            missing.append(mh)
     
     if missing:
         return "rejected", f"Missing must-have skills: {', '.join(missing)}"
@@ -92,14 +109,17 @@ def fetch_candidates_node(state: Feature2State) -> Feature2State:
     if state.get("status") == "failed":
         return state
 
+    role_brief = state.get("role_brief", {})
     try:
-        candidates = fetch_github_candidates(state.get("role_brief", {}))
-        if not candidates:
-            logger.warning("[Feature2] GitHub sourcing returned no candidates. Falling back to mock data.")
-            candidates = MOCK_CANDIDATES
+        candidates = fetch_github_candidates(role_brief)
+        if not candidates or len(candidates) < 5:
+            from feature2.demo_candidates import get_demo_candidates
+            logger.warning("[Feature2] GitHub sourcing returned < 5 candidates. Falling back to demo data.")
+            candidates = get_demo_candidates(role_brief)
     except Exception as e:
-        logger.warning(f"[Feature2] Error fetching GitHub candidates: {e}. Falling back to mock data.")
-        candidates = MOCK_CANDIDATES
+        from feature2.demo_candidates import get_demo_candidates
+        logger.warning(f"[Feature2] Error fetching GitHub candidates: {e}. Falling back to demo data.")
+        candidates = get_demo_candidates(role_brief)
 
     state["candidates"] = candidates
     return state

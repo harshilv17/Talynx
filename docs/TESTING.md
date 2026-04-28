@@ -1,37 +1,35 @@
 # Testing Guide
 
-## Feature 1: JD Generation API
-1. Navigate to `http://localhost:3000/new-role`.
-2. Fill out the intake form (Title, Skills, Salary).
-3. Submit the form to trigger the LangGraph pipeline.
-4. Wait for generation, review the JD, and click **Approve & Publish**.
+## Testing Each Feature
 
-## Feature 2: Sourcing & Screening Pipeline
-*Automatically runs after Feature 1 JD is published.*
-- Verify in MongoDB (`sourcing_candidates` collection) that candidates have been populated.
-- Alternatively, check via API:
+### Feature 1: JD Generation
+1. Navigate to the frontend UI (`/new-role`).
+2. Enter a role brief and submit.
+3. Verify that a comprehensive job description is generated and saved.
+
+### Feature 2: Sourcing & Screening
+1. Use an existing `job_id` (from JD Generation).
+2. Go to the Sourcing Dashboard.
+3. Click "Start Sourcing" to trigger semantic matching.
+4. Verify candidates appear in the Shortlisted or Pending tabs.
+
+### Feature 3: Outreach
+- Tested externally (handled by outreach service teammates). Check integration points at `/api/v1/feature3/`.
+
+### Feature 4: Evaluation & Offer
+1. Navigate to `/feature4/[job_id]` using a valid `job_id`.
+2. Ensure candidate scorecards appear with evaluation criteria.
+3. Click on a "Strong Hire" candidate and click "Generate Offer".
+4. A modal should pop up with the generated offer letter, which can be downloaded or copied.
+
+## API Examples
+
+### Get Candidate Evaluation
 ```bash
-curl http://localhost:8000/api/v1/feature2/candidates/{job_id}
+curl -X GET http://localhost:8000/api/v1/feature4/evaluation/{job_id}
 ```
-Candidates should have a `status` (pending, rejected, shortlisted) and a `score`.
 
-## Feature 4: Evaluation & Offer UI
-1. Navigate to `http://localhost:3000/feature4/<job_id>`.
-2. Review the list of candidates and their Evaluation Scorecards.
-3. Expand a candidate to see their Decision (Hire/No Hire).
-4. Click **Generate Offer** for an eligible candidate.
-5. Verify the Offer Modal opens with the correctly mapped compensation and text.
-
-## API Validation
-Test the Offer API directly:
+### Generate Offer Letter
 ```bash
-curl -X POST http://localhost:8000/api/v1/feature4/offer/<candidate_id>
-```
-**Expected Response:**
-```json
-{
-  "success": true,
-  "message": "Offer generated and sent",
-  "offer_text": "Dear Candidate..."
-}
+curl -X POST http://localhost:8000/api/v1/feature4/offer/{candidate_id}
 ```

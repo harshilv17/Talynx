@@ -51,7 +51,7 @@ export default function Home() {
             <CardDescription>Outreach & Interviews</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-slate-600">Coming soon</p>
+            <p className="text-sm text-slate-600">Automated candidate outreach (active pipeline)</p>
           </CardContent>
         </Card>
 
@@ -61,7 +61,7 @@ export default function Home() {
             <CardDescription>Evaluation & Offer</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-slate-600">Coming soon</p>
+            <p className="text-sm text-slate-600">Candidate scorecards and automated offer generation (via thread)</p>
           </CardContent>
         </Card>
       </div>

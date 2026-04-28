@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CandidateCard } from "./CandidateCard";
+import { useRouter } from "next/navigation";
 import { Loader2, Search, Users, CheckCircle, AlertCircle } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/utils";
 import type { SourcingStatusResponse, CandidateResult } from "@/lib/types";
@@ -21,6 +22,7 @@ const STEPS = [
 ];
 
 export function SourcingView({ threadId }: SourcingViewProps) {
+  const router = useRouter();
   const [status, setStatus] = useState<SourcingStatusResponse | null>(null);
   const [candidates, setCandidates] = useState<CandidateResult[]>([]);
   const [activeTab, setActiveTab] = useState<string>("pending");
@@ -108,10 +110,24 @@ export function SourcingView({ threadId }: SourcingViewProps) {
 
   const handleCandidateAction = async (candidateId: string, action: string) => {
     try {
+      let statusPayload = action;
+      if (action === "shortlist") statusPayload = "shortlisted";
+      if (action === "save") statusPayload = "saved";
+      if (action === "reject") statusPayload = "rejected";
+
+      console.log("[DEBUG] Payload:", { status: statusPayload });
+
       const response = await fetch(`${getApiBaseUrl()}/api/v1/feature2/candidate/${candidateId}/${action}`, {
-        method: "POST"
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status: statusPayload })
       });
-      if (!response.ok) throw new Error("Failed to update candidate");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to update candidate");
+      }
       
       const data = await response.json();
       
@@ -122,6 +138,22 @@ export function SourcingView({ threadId }: SourcingViewProps) {
     } catch (e) {
       console.error(e);
       alert("Failed to update candidate status");
+    }
+  };
+
+  const handleComplete = async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/feature2/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: threadId })
+      });
+      if (!res.ok) throw new Error("Failed to complete sourcing");
+      const data = await res.json();
+      router.push(data.next);
+    } catch (e) {
+      console.error(e);
+      alert("Error proceeding to outreach");
     }
   };
 
@@ -171,35 +203,45 @@ export function SourcingView({ threadId }: SourcingViewProps) {
           </p>
         </div>
 
-        {/* Custom Tabs */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-8 border-b pb-4">
+        {/* Custom Tabs and Proceed Button */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 border-b pb-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button 
+              variant={activeTab === "pending" ? "default" : "outline"} 
+              className="rounded-full" 
+              onClick={() => setActiveTab("pending")}
+            >
+              Pending Review ({counts.pending})
+            </Button>
+            <Button 
+              variant={activeTab === "shortlisted" ? "default" : "outline"} 
+              className="rounded-full"
+              onClick={() => setActiveTab("shortlisted")}
+            >
+              Shortlisted ({counts.shortlisted})
+            </Button>
+            <Button 
+              variant={activeTab === "saved" ? "default" : "outline"} 
+              className="rounded-full"
+              onClick={() => setActiveTab("saved")}
+            >
+              Saved ({counts.saved})
+            </Button>
+            <Button 
+              variant={activeTab === "rejected" ? "default" : "outline"} 
+              className="rounded-full"
+              onClick={() => setActiveTab("rejected")}
+            >
+              Rejected ({counts.rejected})
+            </Button>
+          </div>
+          
           <Button 
-            variant={activeTab === "pending" ? "default" : "outline"} 
-            className="rounded-full" 
-            onClick={() => setActiveTab("pending")}
+            onClick={handleComplete} 
+            disabled={counts.shortlisted === 0}
+            className="w-full md:w-auto"
           >
-            Pending Review ({counts.pending})
-          </Button>
-          <Button 
-            variant={activeTab === "shortlisted" ? "default" : "outline"} 
-            className="rounded-full"
-            onClick={() => setActiveTab("shortlisted")}
-          >
-            Shortlisted ({counts.shortlisted})
-          </Button>
-          <Button 
-            variant={activeTab === "saved" ? "default" : "outline"} 
-            className="rounded-full"
-            onClick={() => setActiveTab("saved")}
-          >
-            Saved ({counts.saved})
-          </Button>
-          <Button 
-            variant={activeTab === "rejected" ? "default" : "outline"} 
-            className="rounded-full"
-            onClick={() => setActiveTab("rejected")}
-          >
-            Rejected ({counts.rejected})
+            Proceed to Outreach &rarr;
           </Button>
         </div>
 

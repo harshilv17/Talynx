@@ -1,49 +1,42 @@
 # Setup & Installation
 
-## Prerequisites
-- Docker Desktop
-- OpenAI API Key
-
 ## Environment Variables
-Create a `.env` file in the root directory:
+Create a `.env` file in the `backend/` directory:
 ```env
-OPENAI_API_KEY=sk-your-openai-key
-DATABASE_URL=postgresql://ata_user:ata_password@localhost:5432/ata_db
-MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
-MONGODB_DB_NAME=ata
+GROQ_API_KEY=your_groq_api_key
+OPENAI_API_KEY=your_openai_api_key
+MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
+MONGO_DB_NAME=ata
 CORS_ORIGINS=http://localhost:3000
 ```
-For the frontend, create `frontend/.env.local`:
+
+Create a `.env.local` file in the `frontend/` directory:
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
+## Backend Setup
+1. Navigate to the backend directory: `cd backend`
+2. Create a virtual environment: `python3 -m venv venv`
+3. Activate the environment: `source venv/bin/activate`
+4. Install dependencies: `pip install -r requirements.txt`
+
+## Frontend Setup
+1. Navigate to the frontend directory: `cd frontend`
+2. Install dependencies: `npm install`
+
 ## Running the Project
-
-### Option 1: Docker (Recommended)
-```bash
-docker-compose up --build
-```
-This starts PostgreSQL, the FastAPI backend (port 8000), and the Next.js frontend (port 3000).
-
-### Option 2: Manual Local Setup
-
-**Backend:**
+### Terminal 1 (Backend)
 ```bash
 cd backend
-python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8000
 ```
 
-**Frontend:**
+### Terminal 2 (Frontend)
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-## Accessing Services
-- **Frontend App**: `http://localhost:3000`
-- **Backend API Docs**: `http://localhost:8000/docs`
+The frontend will be accessible at `http://localhost:3000` and the API docs at `http://localhost:8000/docs`.
