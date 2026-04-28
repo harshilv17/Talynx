@@ -113,6 +113,27 @@ def get_sourcing_candidates(job_id: str):
     return SourcingCandidatesResponse(job_id=job_id, candidates=candidates)
 
 
+@router.get("/shortlisted", response_model=SourcingCandidatesResponse)
+def get_shortlisted_candidates(jd_id: str):
+    """Fetch only shortlisted candidates for a given job."""
+    db_candidates = db_ops.get_sourcing_candidates_by_job(jd_id)
+    
+    candidates = []
+    for c in db_candidates:
+        if c.get("status") == "shortlisted":
+            candidates.append(CandidateResult(
+                id=str(c["_id"]),
+                name=c["name"],
+                skills=c.get("skills", []),
+                experience=c.get("experience", 0),
+                score=c.get("score", 0),
+                status=c.get("status", "pending"),
+                rejection_reason=c.get("rejection_reason"),
+                resume_text=c.get("resume_text", ""),
+            ))
+            
+    return SourcingCandidatesResponse(job_id=jd_id, candidates=candidates)
+
 @router.post("/candidate/{candidate_id}/{action}", response_model=CandidateActionResponse)
 def update_candidate_action(candidate_id: str, action: str, payload: CandidateActionRequest = None):
     """Update a candidate's status (shortlist, reject, save)."""
@@ -156,7 +177,7 @@ def complete_sourcing(request: CompleteSourcingRequest):
     shortlisted = [c for c in candidates if c.get("status") == "shortlisted"]
     
     return {
-        "next": "/feature3/outreach",
+        "next": f"/feature3/outreach?jdId={request.job_id}",
         "count": len(shortlisted)
     }
 
