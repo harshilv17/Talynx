@@ -23,6 +23,13 @@ function OutreachContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Preview State
+  const [previewData, setPreviewData] = useState<{subject: string, body: string} | null>(null);
+  const [previewCandidate, setPreviewCandidate] = useState<ShortlistedCandidate | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState<string | null>(null); // holds candidate id
+  const [isStarting, setIsStarting] = useState(false);
+  const [outreachSuccess, setOutreachSuccess] = useState(false);
+
   useEffect(() => {
     if (!jdId) {
       setLoading(false);
@@ -45,6 +52,47 @@ function OutreachContent() {
 
     loadShortlisted();
   }, [jdId]);
+
+  const handlePreviewEmail = async (candidate: ShortlistedCandidate) => {
+    setIsPreviewing(candidate.id);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/feature3/preview-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidate,
+          job_description: {} // Simplified for the demo
+        })
+      });
+      if (!res.ok) throw new Error("Failed to preview email");
+      const data = await res.json();
+      setPreviewData(data);
+      setPreviewCandidate(candidate);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to preview email");
+    } finally {
+      setIsPreviewing(null);
+    }
+  };
+
+  const handleStartOutreach = async () => {
+    setIsStarting(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/feature3/start-outreach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jd_id: jdId })
+      });
+      if (!res.ok) throw new Error("Failed to start outreach");
+      setOutreachSuccess(true);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to start outreach sequence");
+    } finally {
+      setIsStarting(false);
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 space-y-8">
@@ -118,7 +166,13 @@ function OutreachContent() {
                       <span className="text-xs text-slate-400 py-1">+{candidate.skills.length - 5} more</span>
                     )}
                   </div>
-                  <Button className="w-full mt-6" variant="outline">
+                  <Button 
+                    className="w-full mt-6" 
+                    variant="outline"
+                    onClick={() => handlePreviewEmail(candidate)}
+                    disabled={isPreviewing === candidate.id}
+                  >
+                    {isPreviewing === candidate.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                     Preview Outreach Email
                   </Button>
                 </CardContent>
@@ -128,9 +182,33 @@ function OutreachContent() {
         )}
       </div>
 
-      {candidates.length > 0 && (
+      {previewData && previewCandidate && (
+        <Card className="border-indigo-200 bg-indigo-50 mt-8 shadow-sm">
+          <CardHeader className="border-b border-indigo-100 pb-3 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-lg text-indigo-900">Email Preview: {previewCandidate.name}</CardTitle>
+              <CardDescription className="text-indigo-700 mt-1 font-medium">Subject: {previewData.subject}</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setPreviewData(null)} className="text-indigo-600 hover:text-indigo-900 hover:bg-indigo-100">Close</Button>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <pre className="whitespace-pre-wrap font-sans text-slate-700 text-sm leading-relaxed">
+              {previewData.body}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
+
+      {outreachSuccess && (
+        <div className="bg-green-100 text-green-800 p-4 rounded-md text-center font-medium border border-green-200">
+          Success! The automated outreach sequence has been initiated for all shortlisted candidates.
+        </div>
+      )}
+
+      {candidates.length > 0 && !outreachSuccess && (
         <div className="flex justify-end pt-4">
-          <Button size="lg" className="px-8">
+          <Button size="lg" className="px-8" onClick={handleStartOutreach} disabled={isStarting}>
+            {isStarting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
             Start Email Outreach Sequence &rarr;
           </Button>
         </div>

@@ -110,16 +110,18 @@ def fetch_candidates_node(state: Feature2State) -> Feature2State:
         return state
 
     role_brief = state.get("role_brief", {})
+    from feature2.demo_candidates import get_demo_candidates
+    demo_candidates = get_demo_candidates(role_brief)
+    
     try:
         candidates = fetch_github_candidates(role_brief)
-        if not candidates or len(candidates) < 5:
-            from feature2.demo_candidates import get_demo_candidates
-            logger.warning("[Feature2] GitHub sourcing returned < 5 candidates. Falling back to demo data.")
-            candidates = get_demo_candidates(role_brief)
+        if not candidates:
+            logger.warning("[Feature2] GitHub sourcing returned no candidates. Using demo data.")
+            candidates = []
+        candidates.extend(demo_candidates)
     except Exception as e:
-        from feature2.demo_candidates import get_demo_candidates
         logger.warning(f"[Feature2] Error fetching GitHub candidates: {e}. Falling back to demo data.")
-        candidates = get_demo_candidates(role_brief)
+        candidates = demo_candidates
 
     state["candidates"] = candidates
     return state

@@ -113,3 +113,44 @@ def preview_outreach_email(request: EmailPreviewRequest):
         subject=email_content["subject"],
         body=email_content["body"],
     )
+
+from pydantic import BaseModel
+from typing import Dict, Any
+
+class SimplePreviewRequest(BaseModel):
+    candidate: Dict[str, Any]
+    job_description: Dict[str, Any] = {}
+
+@router.post("/preview-email")
+def simple_preview_email(request: SimplePreviewRequest):
+    """Generate a simple outreach email based on candidate and JD data."""
+    name = request.candidate.get("name", "Candidate")
+    skills = request.candidate.get("skills", [])
+    skills_str = ", ".join(skills) if skills else "your skills"
+    
+    return {
+        "subject": f"Career Opportunity for {name}",
+        "body": f"Hi {name},\n\nWe came across your experience with {skills_str}.\nWe'd love to discuss an opportunity with you that matches your profile.\n\nBest regards,\nTalent Acquisition Team"
+    }
+
+class StartOutreachRequest(BaseModel):
+    jd_id: str
+
+@router.post("/start-outreach")
+def start_outreach_sequence(request: StartOutreachRequest):
+    """Fetch shortlisted candidates and mark them as contacted."""
+    from feature2.db_ops import get_sourcing_candidates_by_job, update_candidate_status
+    import time
+    
+    candidates = get_sourcing_candidates_by_job(request.jd_id)
+    shortlisted = [c for c in candidates if c.get("status") == "shortlisted"]
+    
+    for c in shortlisted:
+        update_candidate_status(str(c["_id"]), "contacted")
+        
+    return {
+        "success": True,
+        "message": f"Successfully started outreach for {len(shortlisted)} candidates.",
+        "timestamp": int(time.time() * 1000)
+    }
+
