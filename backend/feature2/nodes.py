@@ -1,6 +1,7 @@
 """LangGraph nodes for Feature 2: Sourcing & Screening."""
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
 from feature2.state import Feature2State
 from feature2 import db_ops
 from feature1.db_ops import get_role_brief_by_thread
@@ -13,17 +14,24 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-_embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+def _get_embeddings(texts: list[str]) -> list[list[float]]:
+    """Compute TF-IDF vectors for the given texts.
+    
+    The vectorizer is fit on the full corpus each call so the first text
+    (the JD) and the candidate texts share the same vocabulary — this
+    gives meaningful cosine similarity scores without loading any model.
+    """
+    vectorizer = TfidfVectorizer(stop_words="english", max_features=5000)
+    matrix = vectorizer.fit_transform(texts)  # sparse, tiny footprint
+    return matrix.toarray().tolist()
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    a_arr = np.array(a)
-    b_arr = np.array(b)
-    dot = np.dot(a_arr, b_arr)
-    norm = np.linalg.norm(a_arr) * np.linalg.norm(b_arr)
-    if norm == 0:
-        return 0.0
-    return float(dot / norm)
+    a_arr = np.array(a).reshape(1, -1)
+    b_arr = np.array(b).reshape(1, -1)
+    score = sklearn_cosine_similarity(a_arr, b_arr)[0][0]
+    return float(score)
 
 
 def _jd_to_text(jd: dict) -> str:
@@ -36,10 +44,6 @@ def _jd_to_text(jd: dict) -> str:
         " ".join(jd.get("nice_to_haves") or []),
     ]
     return " ".join(p for p in parts if p)
-
-
-def _get_embeddings(texts: list[str]) -> list[list[float]]:
-    return _embedding_model.encode(texts).tolist()
 
 
 def _normalize_skill(skill: str) -> str:

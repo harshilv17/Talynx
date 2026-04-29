@@ -1,36 +1,29 @@
 from contextlib import contextmanager
-from pymongo import MongoClient
-from langgraph.checkpoint.mongodb import MongoDBSaver
-from core.config import get_settings
+from langgraph.checkpoint.sqlite import SqliteSaver
+import sqlite3
+import os
 
-settings = get_settings()
+# Store checkpoint DB in a writable location (Render uses /tmp for ephemeral data)
+_DB_PATH = os.environ.get("CHECKPOINT_DB_PATH", "checkpoints.db")
 
 
 @contextmanager
 def get_checkpointer():
-    """Yield a MongoDBSaver checkpointer backed by MongoDB Atlas.
+    """Yield a SqliteSaver checkpointer backed by a local SQLite file.
 
-    We create our own MongoClient with TLS config because
-    MongoDBSaver.from_conn_string() does not pass TLS options
-    to its internal MongoClient.
+    Lightweight alternative to MongoDBSaver — avoids pulling in the
+    heavy langchain-mongodb → langchain → torch dependency chain that
+    causes OOM on Render's free 512 MB tier.
 
     Usage:
         with get_checkpointer() as cp:
             graph = create_feature1_graph(cp)
             graph.invoke(state, config)
     """
-    client = None
+    conn = None
     try:
-        client = MongoClient(
-            settings.MONGO_URI,
-            tls=True,
-            tlsAllowInvalidCertificates=True,
-            serverSelectionTimeoutMS=30000,
-        )
-        yield MongoDBSaver(
-            client,
-            db_name="talynx_checkpoints",
-        )
+        conn = sqlite3.connect(_DB_PATH, check_same_thread=False)
+        yield SqliteSaver(conn)
     finally:
-        if client:
-            client.close()
+        if conn:
+            conn.close()
