@@ -7,7 +7,7 @@ services:
     runtime: python
     rootDir: backend
     plan: free
-    buildCommand: pip install -r requirements.txt && pip uninstall -y sentence-transformers torch transformers huggingface_hub tokenizers torchaudio torchvision 2>/dev/null || true
+    buildCommand: pip install -r requirements.txt && pip uninstall -y sentence-transformers torch transformers huggingface_hub tokenizers torchaudio torchvision langchain-mongodb langchain langchain-classic 2>/dev/null || true
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
