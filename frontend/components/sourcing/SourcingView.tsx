@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { CandidateCard } from "./CandidateCard";
 import { useRouter } from "next/navigation";
-import { Loader2, Search, Users, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, Search, Users, CheckCircle, AlertCircle, BarChart2 } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/utils";
 import type { SourcingStatusResponse, CandidateResult } from "@/lib/types";
 
@@ -30,6 +31,8 @@ export function SourcingView({ threadId }: SourcingViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateResult | null>(null);
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
 
   const fetchCandidates = useCallback(async () => {
     try {
@@ -160,6 +163,37 @@ export function SourcingView({ threadId }: SourcingViewProps) {
 
   const filteredCandidates = candidates.filter(c => c.status === activeTab);
 
+  const handleSaveNotes = async (candidateId: string, notes: string) => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/feature2/candidate/${candidateId}/notes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes })
+      });
+      if (!response.ok) {
+        throw new Error("Failed to save notes");
+      }
+      setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, notes } : c));
+    } catch (e) {
+      console.error(e);
+      alert("Failed to save notes");
+    }
+  };
+
+  const handleToggleSelect = (candidateId: string, selected: boolean) => {
+    setSelectedCandidateIds(prev => {
+      const next = new Set(prev);
+      if (selected) next.add(candidateId);
+      else next.delete(candidateId);
+      return next;
+    });
+  };
+
+  const compareCandidatesList = candidates.filter(c => selectedCandidateIds.has(c.id));
+  const topCompareCandidate = compareCandidatesList.length > 0 
+    ? [...compareCandidatesList].sort((a, b) => b.score - a.score)[0] 
+    : null;
+
   if (status?.status === "completed") {
     if (!candidates || candidates.length === 0) {
       return (
@@ -237,13 +271,24 @@ export function SourcingView({ threadId }: SourcingViewProps) {
             </Button>
           </div>
           
-          <Button 
-            onClick={handleComplete} 
-            disabled={counts.shortlisted === 0}
-            className="w-full md:w-auto"
-          >
-            Proceed to Outreach &rarr;
-          </Button>
+          <div className="flex gap-2 w-full md:w-auto">
+            <Button 
+              variant="secondary"
+              onClick={() => setIsCompareModalOpen(true)}
+              disabled={selectedCandidateIds.size < 2}
+              className="flex-1 md:flex-none"
+            >
+              <BarChart2 className="w-4 h-4 mr-2" />
+              Compare ({selectedCandidateIds.size})
+            </Button>
+            <Button 
+              onClick={handleComplete} 
+              disabled={counts.shortlisted === 0}
+              className="flex-1 md:flex-none"
+            >
+              Proceed to Outreach &rarr;
+            </Button>
+          </div>
         </div>
 
         {filteredCandidates.length === 0 ? (
@@ -259,6 +304,9 @@ export function SourcingView({ threadId }: SourcingViewProps) {
                 rank={index + 1}
                 onAction={handleCandidateAction}
                 onViewResume={setSelectedCandidate}
+                onSaveNotes={handleSaveNotes}
+                isSelected={selectedCandidateIds.has(candidate.id)}
+                onToggleSelect={handleToggleSelect}
               />
             ))}
           </div>
@@ -296,6 +344,87 @@ export function SourcingView({ threadId }: SourcingViewProps) {
               </div>
               <div className="p-4 border-t bg-slate-50 flex justify-end gap-2">
                  <Button onClick={() => setSelectedCandidate(null)}>Close Resume</Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {isCompareModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <Card className="w-full max-w-5xl shadow-2xl max-h-[90vh] flex flex-col">
+              <div className="border-b bg-slate-50 flex flex-row items-center justify-between p-6">
+                <div>
+                  <h2 className="text-xl font-bold">Candidate Comparison</h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Comparing {compareCandidatesList.length} candidates side-by-side
+                  </p>
+                </div>
+                <Button variant="ghost" onClick={() => setIsCompareModalOpen(false)}>Close</Button>
+              </div>
+              <div className="p-6 overflow-x-auto overflow-y-auto flex-1">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead>
+                    <tr className="border-b-2 border-slate-200">
+                      <th className="p-3 font-semibold text-slate-700 w-1/4">Metric</th>
+                      {compareCandidatesList.map(c => (
+                        <th key={c.id} className="p-3 font-semibold text-slate-900 w-1/4 border-l">
+                          {c.name}
+                          {c.id === topCompareCandidate?.id && (
+                            <Badge className="ml-2 bg-amber-500 hover:bg-amber-600">Top Match</Badge>
+                          )}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-slate-100">
+                      <td className="p-3 font-medium text-slate-600 bg-slate-50">ATS Match Score</td>
+                      {compareCandidatesList.map(c => (
+                        <td key={c.id} className="p-3 border-l text-lg font-bold text-slate-800">
+                          {c.score}%
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="border-b border-slate-100">
+                      <td className="p-3 font-medium text-slate-600 bg-slate-50">Experience</td>
+                      {compareCandidatesList.map(c => (
+                        <td key={c.id} className="p-3 border-l">
+                          {c.experience} years
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="border-b border-slate-100">
+                      <td className="p-3 font-medium text-slate-600 bg-slate-50">Technical Score</td>
+                      {compareCandidatesList.map(c => (
+                        <td key={c.id} className="p-3 border-l">
+                          {c.evaluation?.technical_score || c.score}%
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="border-b border-slate-100">
+                      <td className="p-3 font-medium text-slate-600 bg-slate-50">Overall Score</td>
+                      {compareCandidatesList.map(c => (
+                        <td key={c.id} className="p-3 border-l font-semibold text-primary">
+                          {c.evaluation?.overall_score || c.score}%
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-medium text-slate-600 bg-slate-50 align-top">Skills</td>
+                      {compareCandidatesList.map(c => (
+                        <td key={c.id} className="p-3 border-l align-top">
+                          <div className="flex flex-wrap gap-1">
+                            {c.skills.map(s => (
+                              <span key={s} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-md border border-slate-200">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </Card>
           </div>

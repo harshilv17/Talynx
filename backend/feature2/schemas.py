@@ -14,6 +14,7 @@ class CandidateResult(BaseModel):
     source: Optional[str] = "github"
     response: Optional[str] = None
     evaluation: Optional[dict] = None
+    notes: Optional[str] = None
 
 
 class StartSourcingResponse(BaseModel):

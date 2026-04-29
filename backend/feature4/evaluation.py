@@ -132,6 +132,23 @@ def compute_final_score(candidate: dict, jd: dict) -> dict:
 
     summary = _build_summary(technical, experience, skill_match, interview, overall, candidate, jd)
 
+    explanation = []
+    if skill_match >= 80:
+        explanation.append("✔ Strong match in required skills")
+    elif skill_match >= 50:
+        explanation.append("✔ Moderate match in required skills")
+        
+    required_exp = jd.get("years_of_experience") or 0
+    candidate_exp = candidate.get("experience") or 0
+    if candidate_exp >= required_exp and required_exp > 0:
+        explanation.append(f"✔ Experience aligns with JD ({candidate_exp} years)")
+        
+    if candidate.get("source") == "github":
+        explanation.append("✔ Active GitHub contributions")
+        
+    if technical >= 70:
+        explanation.append("✔ High semantic similarity with JD")
+
     return {
         "technical_score":   round(technical,   2),
         "experience_score":  round(experience,  2),
@@ -139,6 +156,7 @@ def compute_final_score(candidate: dict, jd: dict) -> dict:
         "interview_score":   round(interview,   2),
         "overall_score":     round(overall,     2),
         "summary":           summary,
+        "explanation":       explanation,
     }
 
 
