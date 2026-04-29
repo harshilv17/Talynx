@@ -1,27 +1,41 @@
 # Talynx Autonomous Talent Acquisition (ATA)
 
-Talynx ATA is a next-generation, AI-driven Applicant Tracking System (ATS) that automates the entire recruitment pipeline, from Job Description generation to final Offer issuance.
+Talynx ATA is an end-to-end, AI-powered Applicant Tracking System (ATS) that automates the entire recruitment lifecycle from Job Description creation to finalizing an offer.
 
 ## Features
 
-- **Feature 1: JD Generation**  
-  Interactively collect requirements from hiring managers via chat, then autonomously generate and publish highly optimized Job Descriptions.
-- **Feature 2: Sourcing & Screening**  
-  Uses the GitHub API (combined with rich Demo candidate fallbacks) to source candidates natively. Features semantic skill matching via SentenceTransformers to score and rank candidate fit. 
-- **Feature 3: Outreach**  
-  Generates personalized outreach sequences. Automatically manages replies (simulated in demo mode) and transitions interested respondents directly to the evaluation queue.
-- **Feature 4: Evaluation & Offer**  
-  Calculates deep technical, experience, and holistic match scores. Uses AI heuristics to output structured Hiring Decisions (e.g. `HIRE (Strong)` vs `NO HIRE`). Automatically generates tailored offer letters and manages the digital sign-off states.
+- **Feature 1: Intake & Job Description Generation**
+  Conversational AI agent for gathering role requirements from hiring managers via chat, automatically generating and publishing highly optimized job descriptions.
+  
+- **Feature 2: Sourcing & Screening**
+  Uses the GitHub API (combined with rich Demo candidate fallbacks) to source candidates natively. Features semantic skill matching via SentenceTransformers to score and rank candidate fit.
+  - **Candidate Comparison Matrix:** Compare selected candidates side-by-side.
+  - **HR Notes:** Real-time notes synchronization.
+  - **Resume Viewer:** Clean, modal-based resume document viewing.
+
+- **Feature 3: Outreach Sequences**
+  Generates personalized outreach sequences based on candidate profiles. Automatically manages replies (simulated in demo mode) and transitions interested respondents directly to the evaluation queue.
+
+- **Feature 4: Evaluation & Offer**
+  Calculates deep technical, experience, and holistic match scores.
+  - **"Why this candidate?":** AI-generated explanations of the candidate's fit.
+  - **Hiring Decisions:** Outputs structured recommendations (e.g. `HIRE (Strong)` vs `NO HIRE`).
+  - **Offer Management:** Automatically generates tailored offer letters (for "Interested" candidates only) and closes the loop (marks Candidate as Hired, JD as Closed).
+
+## Tech Stack
+- **Frontend:** Next.js (App Router), Tailwind CSS, shadcn/ui
+- **Backend:** FastAPI, LangGraph, Python
+- **Database:** MongoDB Atlas
 
 ## End-to-End Workflow
 
 1. Start by clicking **Create New Role** on the Dashboard. Chat with the AI to refine your requirements, then **Publish**.
-2. Advance to the **Pipeline (Sourcing)**. The AI will autonomously find and screen real developers on GitHub and combine them with demo dataset profiles.
+2. Advance to the **Pipeline (Sourcing)**. The AI will autonomously find and screen real developers on GitHub and combine them with demo dataset profiles. Compare top candidates and add HR notes.
 3. Once satisfied, Shortlist your top choices and proceed to **Outreach**.
 4. Start the outreach sequence. The system will email the candidates, simulating their responses behind the scenes. 
-5. Proceed to the **Evaluation** hub. You will only see candidates who responded positively ("Interested").
+5. Proceed to the **Evaluation** hub. You will only see candidates who responded positively ("Interested"). Read the AI explanation for their fit.
 6. Click **Evaluate** to trigger the final scorecard algorithm. 
-7. If the candidate clears the high-bar recommendation (>=75%), generate their **Offer Letter**, preview it, and securely send it via email to close the loop!
+7. If the candidate clears the high-bar recommendation, click **Generate Offer Letter**, preview it, and securely send it via email to close the loop! The dashboard will now show the JD as Closed with the hired candidate's name.
 
 ## Documentation Navigation
 - [Setup & Installation](./SETUP.md)

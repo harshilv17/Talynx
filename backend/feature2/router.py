@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
+from pydantic import BaseModel
 
 from feature2.schemas import (
     StartSourcingResponse, SourcingStatusResponse, 
