@@ -153,24 +153,19 @@ def create_and_send_offer(candidate_id: str):
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    if candidate.get("status") != CandidateStatus.EVALUATED:
+    if candidate.get("status") not in {CandidateStatus.EVALUATED.value, CandidateStatus.RESPONDED.value}:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Candidate must be in '{CandidateStatus.EVALUATED}' status to receive an offer "
+                f"Candidate must be in 'evaluated' or 'responded' status to receive an offer "
                 f"(current: '{candidate.get('status')}')."
             ),
         )
 
-    decision = candidate.get("decision") or {}
-    if decision.get("recommendation") not in _HIRE_RECOMMENDATIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Candidate recommendation is '{decision.get('recommendation')}'. "
-                "Only hire_high or hire_moderate candidates can receive an offer."
-            ),
-        )
+    # HR can override AI decision, so we don't block on recommendation
+    # decision = candidate.get("decision") or {}
+    # if decision.get("recommendation") not in _HIRE_RECOMMENDATIONS:
+    #     logger.warning("HR generating offer despite AI recommendation: %s", decision.get("recommendation"))
 
     job_id    = candidate.get("job_id")
     jd_doc    = get_published_jd(job_id) if job_id else None

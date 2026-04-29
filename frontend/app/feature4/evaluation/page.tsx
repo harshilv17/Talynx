@@ -284,7 +284,7 @@ function EvaluationContent() {
                       </Button>
                     )}
                     
-                    {candidate.evaluation && candidate.decision?.recommendation.startsWith('hire') && candidate.status === "evaluated" && (
+                    {candidate.evaluation && (candidate.status === "responded" || candidate.status === "evaluated") && (
                        <div className="flex gap-2">
                          <Button 
                           className="w-full bg-slate-100 text-slate-700 hover:bg-slate-200" 

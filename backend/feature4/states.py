@@ -20,7 +20,7 @@ _TRANSITIONS: dict[CandidateStatus, set[CandidateStatus]] = {
     CandidateStatus.SHORTLISTED:  {CandidateStatus.CONTACTED, CandidateStatus.EVALUATING, CandidateStatus.EVALUATED, CandidateStatus.REJECTED},
     CandidateStatus.SAVED:        {CandidateStatus.SHORTLISTED, CandidateStatus.CONTACTED, CandidateStatus.EVALUATING, CandidateStatus.EVALUATED, CandidateStatus.REJECTED},
     CandidateStatus.CONTACTED:    {CandidateStatus.RESPONDED, CandidateStatus.INTERVIEWED, CandidateStatus.REJECTED},
-    CandidateStatus.RESPONDED:    {CandidateStatus.EVALUATING, CandidateStatus.INTERVIEWED, CandidateStatus.REJECTED},
+    CandidateStatus.RESPONDED:    {CandidateStatus.EVALUATING, CandidateStatus.INTERVIEWED, CandidateStatus.OFFERED, CandidateStatus.REJECTED},
     CandidateStatus.INTERVIEWED:  {CandidateStatus.EVALUATING, CandidateStatus.EVALUATED, CandidateStatus.REJECTED},
     CandidateStatus.EVALUATING:   {CandidateStatus.EVALUATED, CandidateStatus.REJECTED},
     CandidateStatus.EVALUATED:    {CandidateStatus.CONTACTED, CandidateStatus.OFFERED, CandidateStatus.REJECTED},
