@@ -108,6 +108,9 @@ def get_sourcing_candidates(job_id: str):
             status=c.get("status", "pending"),
             rejection_reason=c.get("rejection_reason"),
             resume_text=c.get("resume_text", ""),
+            source=c.get("source", "github"),
+            response=c.get("response"),
+            evaluation=c.get("evaluation"),
         ))
         
     return SourcingCandidatesResponse(job_id=job_id, candidates=candidates)
@@ -130,6 +133,9 @@ def get_shortlisted_candidates(jd_id: str):
                 status=c.get("status", "pending"),
                 rejection_reason=c.get("rejection_reason"),
                 resume_text=c.get("resume_text", ""),
+                source=c.get("source", "github"),
+                response=c.get("response"),
+                evaluation=c.get("evaluation"),
             ))
             
     return SourcingCandidatesResponse(job_id=jd_id, candidates=candidates)

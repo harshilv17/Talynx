@@ -43,7 +43,14 @@ export function CandidateCard({ candidate, rank, onAction }: CandidateCardProps)
             </div>
             <div className="flex flex-col">
                 <CardTitle className="text-lg">{candidate.name}</CardTitle>
-                <div className="mt-1">{getStatusBadge(candidate.status)}</div>
+                <div className="mt-1 flex items-center gap-2">
+                  {getStatusBadge(candidate.status)}
+                  {candidate.source === 'demo' ? (
+                    <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">Demo</Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Live</Badge>
+                  )}
+                </div>
             </div>
           </div>
           <div className={`px-3 py-1 rounded-full text-sm font-bold border ${getScoreColor(candidate.score)}`}>

@@ -70,3 +70,17 @@ def update_candidate_status(candidate_id: str, new_status: str) -> dict | None:
         }},
         return_document=ReturnDocument.AFTER,
     )
+
+def update_candidate_field(candidate_id: str, updates: dict) -> dict | None:
+    from pymongo import ReturnDocument
+    try:
+        oid = ObjectId(candidate_id)
+    except Exception:
+        return None
+        
+    updates["updated_at"] = datetime.utcnow()
+    return get_sourcing_candidates().find_one_and_update(
+        {"_id": oid},
+        {"$set": updates},
+        return_document=ReturnDocument.AFTER,
+    )

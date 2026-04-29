@@ -113,7 +113,8 @@ def fetch_github_candidates(role_brief: dict) -> list[dict]:
                     "name": name,
                     "skills": skills,
                     "experience": exp_years,
-                    "resume_text": resume_text
+                    "resume_text": resume_text,
+                    "source": "github"
                 })
 
             return candidates[:10]

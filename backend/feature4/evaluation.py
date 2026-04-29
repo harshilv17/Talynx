@@ -58,11 +58,11 @@ def _skill_match_score(candidate: dict, jd: dict) -> float:
 
 
 def _interview_score(candidate: dict) -> float:
-    raw = candidate.get("interview_score") or 0.0
+    raw = candidate.get("interview_score") or 85.0
     try:
         raw = float(raw)
     except (TypeError, ValueError):
-        raw = 0.0
+        raw = 85.0
     return _clamp(raw)
 
 
