@@ -10,21 +10,22 @@ Follow these steps to configure and run the Autonomous Talent Acquisition (ATA) 
 ## 1. Environment Configuration
 
 ### Backend
-Create a `.env` file in the `backend` directory based on the `.env.example`:
+Create a `.env` file in the `backend` directory based on `.env.example`:
 
 ```env
 # backend/.env
-MONGODB_URI=mongodb+srv://<user>:<password>@cluster...
+MONGO_URI=mongodb://localhost:27017/
+DB_NAME=talynx_db
 OPENAI_API_KEY=sk-...
 GITHUB_TOKEN=ghp_...
 CORS_ORIGINS=http://localhost:3000
 ```
 
 ### Frontend
-Create a `.env.local` file in the `frontend` directory:
+Create a `.env.local` or `.env` file in the `frontend` directory:
 
 ```env
-# frontend/.env.local
+# frontend/.env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
