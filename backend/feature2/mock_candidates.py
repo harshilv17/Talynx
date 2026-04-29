@@ -185,3 +185,23 @@ MOCK_CANDIDATES = [
         ),
     },
 ]
+
+def get_demo_candidates(jd: dict) -> list[dict]:
+    """Return mock candidates, injecting required skills into a few to ensure they pass."""
+    import copy
+    candidates = copy.deepcopy(MOCK_CANDIDATES)
+    
+    must_haves = jd.get("must_have_skills", [])
+    
+    # Inject must-haves into the first 3 candidates so they get a high score
+    if must_haves:
+        for i in range(min(3, len(candidates))):
+            for skill in must_haves:
+                if skill not in candidates[i]["skills"]:
+                    candidates[i]["skills"].append(skill)
+                    
+    # Add source="demo" to all
+    for c in candidates:
+        c["source"] = "demo"
+        
+    return candidates

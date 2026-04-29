@@ -110,7 +110,7 @@ def fetch_candidates_node(state: Feature2State) -> Feature2State:
         return state
 
     role_brief = state.get("role_brief", {})
-    from feature2.demo_candidates import get_demo_candidates
+    from feature2.mock_candidates import get_demo_candidates
     demo_candidates = get_demo_candidates(role_brief)
     
     try:
@@ -122,6 +122,14 @@ def fetch_candidates_node(state: Feature2State) -> Feature2State:
     except Exception as e:
         logger.warning(f"[Feature2] Error fetching GitHub candidates: {e}. Falling back to demo data.")
         candidates = demo_candidates
+
+    # Deduplication by candidate name
+    unique_candidates = {}
+    for c in candidates:
+        key = c["name"].lower().strip()
+        if key not in unique_candidates:
+            unique_candidates[key] = c
+    candidates = list(unique_candidates.values())
 
     import random
     random.shuffle(candidates)
@@ -181,6 +189,7 @@ def ranking_node(state: Feature2State) -> Feature2State:
             "experience": cand["experience"],
             "resume_text": cand["resume_text"],
             "score": round(score * 100, 2),
+            "source": cand.get("source", "github"),
         })
 
     ranked.sort(key=lambda x: x["score"], reverse=True)
@@ -221,6 +230,7 @@ def shortlist_node(state: Feature2State) -> Feature2State:
             "rejection_reason": reason,
             "evaluation": evaluation,
             "decision": decision,
+            "source": cand.get("source", "github"),
         })
 
     # Insert individual candidates into sourcing_candidates
