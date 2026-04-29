@@ -111,6 +111,7 @@ def get_sourcing_candidates(job_id: str):
             source=c.get("source", "github"),
             response=c.get("response"),
             evaluation=c.get("evaluation"),
+            notes=c.get("notes"),
         ))
         
     return SourcingCandidatesResponse(job_id=job_id, candidates=candidates)
@@ -136,6 +137,7 @@ def get_shortlisted_candidates(jd_id: str):
                 source=c.get("source", "github"),
                 response=c.get("response"),
                 evaluation=c.get("evaluation"),
+                notes=c.get("notes"),
             ))
             
     return SourcingCandidatesResponse(job_id=jd_id, candidates=candidates)
@@ -170,6 +172,28 @@ def update_candidate_action(candidate_id: str, action: str, payload: CandidateAc
         new_status=new_status,
         message=f"Candidate marked as {new_status}",
     )
+
+class NotesUpdateRequest(BaseModel):
+    notes: str
+
+@router.patch("/candidate/{candidate_id}/notes")
+def update_candidate_notes(candidate_id: str, payload: NotesUpdateRequest):
+    """Update HR notes for a candidate."""
+    from bson.objectid import ObjectId
+    try:
+        oid = ObjectId(candidate_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid candidate ID")
+    
+    updated = db_ops.get_sourcing_candidates().find_one_and_update(
+        {"_id": oid},
+        {"$set": {"notes": payload.notes}},
+        return_document=True
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+        
+    return {"success": True, "notes": payload.notes}
 
 from pydantic import BaseModel
 

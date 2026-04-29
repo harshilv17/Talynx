@@ -11,6 +11,7 @@ interface EvaluationScores {
   technical_score: number;
   experience_score: number;
   overall_score: number;
+  explanation?: string[];
 }
 
 interface DecisionResult {
@@ -28,6 +29,8 @@ interface Candidate {
   response?: string;
   evaluation?: EvaluationScores;
   decision?: DecisionResult;
+  notes?: string;
+  explanation?: string;
 }
 
 function EvaluationContent() {
@@ -267,12 +270,41 @@ function EvaluationContent() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-4 flex-1 space-y-4">
-                  <div className="flex flex-wrap gap-1.5">
-                    {candidate.skills.slice(0, 5).map((skill, idx) => (
-                      <span key={idx} className="bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-md border border-slate-200">
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {candidate.skills.slice(0, 5).map(skill => (
+                      <span key={skill} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full border border-slate-200">
                         {skill}
                       </span>
                     ))}
+                    {candidate.skills.length > 5 && (
+                      <span className="px-2 py-0.5 bg-slate-50 text-slate-500 text-xs rounded-full border border-slate-200">
+                        +{candidate.skills.length - 5} more
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                     <label className="text-xs font-semibold text-slate-700 mb-1 block">HR Notes</label>
+                     <textarea
+                       className="w-full text-sm min-h-[60px] bg-slate-50 border border-slate-200 rounded p-2 text-slate-700 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                       placeholder="Add notes about this candidate..."
+                       defaultValue={candidate.notes || ""}
+                       onBlur={async (e) => {
+                         if (e.target.value !== (candidate.notes || "")) {
+                           const newVal = e.target.value;
+                           try {
+                             await fetch(`${getApiBaseUrl()}/api/v1/feature2/candidate/${candidate.id}/notes`, {
+                               method: "PATCH",
+                               headers: { "Content-Type": "application/json" },
+                               body: JSON.stringify({ notes: newVal })
+                             });
+                             setCandidates(prev => prev.map(c => c.id === candidate.id ? { ...c, notes: newVal } : c));
+                           } catch (err) {
+                             console.error("Failed to save notes", err);
+                           }
+                         }
+                       }}
+                     />
                   </div>
 
                   {candidate.evaluation ? (
@@ -298,6 +330,19 @@ function EvaluationContent() {
                       {candidate.decision && (
                         <div className={`mt-3 text-sm font-semibold text-center p-2 rounded border ${candidate.decision.recommendation.startsWith('hire') ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
                           Decision: {candidate.decision.recommendation === 'hire_high' ? 'HIRE (Strong)' : candidate.decision.recommendation === 'hire_moderate' ? 'HIRE (Moderate)' : 'NO HIRE'}
+                        </div>
+                      )}
+                      {candidate.evaluation.explanation && candidate.evaluation.explanation.length > 0 && (
+                        <div className="mt-4 border-t border-indigo-100 pt-3">
+                          <h4 className="font-semibold text-sm text-indigo-900 mb-2">Why this candidate?</h4>
+                          <ul className="space-y-1">
+                            {candidate.evaluation.explanation.map((item: string, i: number) => (
+                              <li key={i} className="text-sm text-slate-700 flex items-start gap-1.5">
+                                <span className="text-green-600 font-bold shrink-0">✔</span>
+                                <span>{item.replace('✔ ', '')}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       )}
                     </div>

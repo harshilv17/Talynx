@@ -3,13 +3,18 @@
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import type { CandidateResult } from "@/lib/types";
+import { useState, useEffect } from "react";
 
 interface CandidateCardProps {
   candidate: CandidateResult;
   rank: number;
   onAction?: (candidateId: string, action: string) => void;
   onViewResume?: (candidate: CandidateResult) => void;
+  onSaveNotes?: (candidateId: string, notes: string) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (candidateId: string, selected: boolean) => void;
 }
 
 function getScoreColor(score: number): string {
@@ -33,12 +38,34 @@ function getStatusBadge(status: string) {
   }
 }
 
-export function CandidateCard({ candidate, rank, onAction, onViewResume }: CandidateCardProps) {
+export function CandidateCard({ candidate, rank, onAction, onViewResume, onSaveNotes, isSelected, onToggleSelect }: CandidateCardProps) {
+  const [notes, setNotes] = useState(candidate.notes || "");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+
+  useEffect(() => {
+    setNotes(candidate.notes || "");
+  }, [candidate.notes]);
+
+  const handleSaveNotes = async () => {
+    if (!onSaveNotes) return;
+    setIsSavingNotes(true);
+    await onSaveNotes(candidate.id, notes);
+    setIsSavingNotes(false);
+  };
+
   return (
     <Card className={`shadow-md hover:shadow-lg transition-all duration-200 bg-gradient-to-br ${getScoreBg(candidate.score)} flex flex-col`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
+            {onToggleSelect && (
+              <input 
+                type="checkbox"
+                checked={isSelected || false} 
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onToggleSelect(candidate.id, e.target.checked)} 
+                className="mr-1 w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+              />
+            )}
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
               {rank}
             </div>
@@ -85,6 +112,27 @@ export function CandidateCard({ candidate, rank, onAction, onViewResume }: Candi
             <strong>Rejection Reason:</strong> {candidate.rejection_reason}
           </div>
         )}
+
+        <div className="pt-2 border-t mt-4">
+          <label className="text-xs font-semibold text-slate-700 mb-1 block">HR Notes</label>
+          <Textarea 
+            placeholder="Add notes about this candidate..." 
+            value={notes} 
+            onChange={e => setNotes(e.target.value)}
+            className="text-sm min-h-[60px] bg-white/50 resize-none"
+          />
+          {notes !== (candidate.notes || "") && (
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={handleSaveNotes} 
+              disabled={isSavingNotes}
+              className="mt-1 h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            >
+              {isSavingNotes ? "Saving..." : "Save Notes"}
+            </Button>
+          )}
+        </div>
       </CardContent>
       <CardFooter className="flex justify-between items-center pt-2 pb-4 px-6 border-t border-slate-100/50">
         <div className="flex gap-2">

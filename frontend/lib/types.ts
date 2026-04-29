@@ -64,6 +64,7 @@ export interface CandidateResult {
   source?: string;
   response?: string;
   evaluation?: any;
+  notes?: string;
 }
 
 export interface SourcingStatusResponse {
