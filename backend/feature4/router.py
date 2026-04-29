@@ -115,6 +115,12 @@ def api_generate_offer(request: GenerateOfferRequest):
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
+    if candidate.get("response") != "Interested":
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot generate offer for candidate who is not interested"
+        )
+
     jd_doc = get_published_jd(request.jd_id)
     jd = jd_doc.get("jd_content", {}) if jd_doc else {}
     
@@ -162,6 +168,12 @@ def create_and_send_offer(candidate_id: str):
             ),
         )
 
+    if candidate.get("response") != "Interested":
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot generate offer for candidate who is not interested"
+        )
+
     # HR can override AI decision, so we don't block on recommendation
     # decision = candidate.get("decision") or {}
     # if decision.get("recommendation") not in _HIRE_RECOMMENDATIONS:
@@ -175,7 +187,8 @@ def create_and_send_offer(candidate_id: str):
 
     try:
         send_offer_email(candidate, offer_text)
-        mark_candidate_offered(candidate_id, offer_text)
+        from feature4.db_ops import mark_candidate_hired
+        mark_candidate_hired(candidate_id)
     except Exception as exc:
         logger.error("Failed to send offer email for candidate %s: %s", candidate_id, exc)
         raise HTTPException(status_code=502, detail=f"Email delivery failed: {exc}")

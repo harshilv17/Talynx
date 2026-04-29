@@ -29,8 +29,11 @@ def get_dashboard():
         pending = status_counts.get("pending", 0)
         
         # 3 & 4. Fetch outreach and offer data (Mocked based on pipeline status since Feature 3/4 mock transitions)
-        contacted = status_counts.get("contacted", 0) + status_counts.get("interviewed", 0) + status_counts.get("evaluated", 0) + status_counts.get("offered", 0)
-        offered = status_counts.get("offered", 0)
+        contacted = status_counts.get("contacted", 0) + status_counts.get("interviewed", 0) + status_counts.get("evaluated", 0) + status_counts.get("offered", 0) + status_counts.get("hired", 0)
+        offered = status_counts.get("offered", 0) + status_counts.get("hired", 0)
+        hired = status_counts.get("hired", 0)
+        
+        hired_candidates = [c.get("name") for c in candidates if c.get("status") == "hired"]
         
         jobs.append({
             "job_id": thread_id,
@@ -49,7 +52,8 @@ def get_dashboard():
             },
             "offers": {
                 "generated": offered,
-                "accepted": 0
+                "accepted": hired,
+                "hired_candidates": hired_candidates
             }
         })
         

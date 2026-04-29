@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getApiBaseUrl } from "@/lib/utils";
-import { Briefcase, Users, Mail, FileText, Loader2, Plus, ChevronRight } from "lucide-react";
+import { Briefcase, Users, Mail, FileText, Loader2, Plus, ChevronRight, CheckCircle } from "lucide-react";
 
 interface JobStats {
   total: number;
@@ -21,7 +21,7 @@ interface JobData {
   status: string;
   stats: JobStats;
   outreach: { emails_sent: number; responses: number };
-  offers: { generated: number; accepted: number };
+  offers: { generated: number; accepted: number; hired_candidates?: string[] };
 }
 
 export default function Home() {
@@ -89,7 +89,7 @@ export default function Home() {
                   <div className="p-6 md:w-1/3 border-b md:border-b-0 md:border-r bg-slate-50/50 flex flex-col justify-center">
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase tracking-wider
-                        ${isPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}
+                        ${job.status === 'closed' ? 'bg-slate-200 text-slate-800' : isPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}
                       `}>
                         {job.status}
                       </span>
@@ -140,6 +140,15 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+                
+                {job.status === "closed" && job.offers.hired_candidates && job.offers.hired_candidates.length > 0 && (
+                  <div className="w-full bg-green-50 p-3 border-t border-green-100 flex items-center justify-between">
+                     <span className="text-sm font-medium text-green-800 flex items-center gap-2">
+                       <CheckCircle className="h-4 w-4" /> 
+                       Hired: {job.offers.hired_candidates.join(", ")}
+                     </span>
+                  </div>
+                )}
               </Card>
             );
           })}

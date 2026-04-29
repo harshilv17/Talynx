@@ -12,6 +12,7 @@ class CandidateStatus(str, Enum):
     EVALUATING  = "evaluating"
     EVALUATED   = "evaluated"
     OFFERED     = "offered"
+    HIRED       = "hired"
     REJECTED    = "rejected"
 
 # Allowed forward transitions per status
@@ -20,11 +21,12 @@ _TRANSITIONS: dict[CandidateStatus, set[CandidateStatus]] = {
     CandidateStatus.SHORTLISTED:  {CandidateStatus.CONTACTED, CandidateStatus.EVALUATING, CandidateStatus.EVALUATED, CandidateStatus.REJECTED},
     CandidateStatus.SAVED:        {CandidateStatus.SHORTLISTED, CandidateStatus.CONTACTED, CandidateStatus.EVALUATING, CandidateStatus.EVALUATED, CandidateStatus.REJECTED},
     CandidateStatus.CONTACTED:    {CandidateStatus.RESPONDED, CandidateStatus.INTERVIEWED, CandidateStatus.REJECTED},
-    CandidateStatus.RESPONDED:    {CandidateStatus.EVALUATING, CandidateStatus.INTERVIEWED, CandidateStatus.OFFERED, CandidateStatus.REJECTED},
+    CandidateStatus.RESPONDED:    {CandidateStatus.EVALUATING, CandidateStatus.INTERVIEWED, CandidateStatus.OFFERED, CandidateStatus.HIRED, CandidateStatus.REJECTED},
     CandidateStatus.INTERVIEWED:  {CandidateStatus.EVALUATING, CandidateStatus.EVALUATED, CandidateStatus.REJECTED},
     CandidateStatus.EVALUATING:   {CandidateStatus.EVALUATED, CandidateStatus.REJECTED},
-    CandidateStatus.EVALUATED:    {CandidateStatus.CONTACTED, CandidateStatus.OFFERED, CandidateStatus.REJECTED},
-    CandidateStatus.OFFERED:      {CandidateStatus.REJECTED},
+    CandidateStatus.EVALUATED:    {CandidateStatus.CONTACTED, CandidateStatus.OFFERED, CandidateStatus.HIRED, CandidateStatus.REJECTED},
+    CandidateStatus.OFFERED:      {CandidateStatus.HIRED, CandidateStatus.REJECTED},
+    CandidateStatus.HIRED:        {CandidateStatus.REJECTED},
     CandidateStatus.REJECTED:     {CandidateStatus.SHORTLISTED, CandidateStatus.SAVED},
 }
 

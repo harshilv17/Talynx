@@ -58,7 +58,7 @@ function EvaluationContent() {
         if (!res.ok) throw new Error("Failed to load candidates");
         const data = await res.json();
         const responded = (data.candidates || []).filter(
-          (c: Candidate) => c.status === "responded" || c.status === "evaluated" || c.status === "offered"
+          (c: Candidate) => c.status === "responded" || c.status === "evaluated" || c.status === "offered" || c.status === "hired"
         );
         setCandidates(responded);
       } catch (err: any) {
@@ -145,7 +145,7 @@ function EvaluationContent() {
       }
       
       setCandidates(prev => prev.map(c => 
-        c.id === candidate.id ? { ...c, status: "offered" } : c
+        c.id === candidate.id ? { ...c, status: "hired" } : c
       ));
       setOfferLetter(null);
       setOfferCandidate(null);
@@ -168,6 +168,41 @@ function EvaluationContent() {
       console.error(err);
     }
   };
+
+  const hasHiredCandidate = candidates.some(c => c.status === "hired");
+
+  useEffect(() => {
+    if (hasHiredCandidate) {
+      const timer = setTimeout(() => {
+        window.location.href = '/';
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [hasHiredCandidate]);
+
+  if (hasHiredCandidate) {
+    return (
+      <div className="max-w-4xl mx-auto py-20 px-4 text-center space-y-8 animate-in fade-in duration-500">
+        <div className="flex justify-center">
+          <div className="rounded-full bg-green-100 p-8">
+            <CheckCircle className="h-20 w-20 text-green-600" />
+          </div>
+        </div>
+        <h1 className="text-4xl font-bold tracking-tight text-slate-900">🎉 Hiring Completed</h1>
+        <p className="text-xl text-slate-500 max-w-2xl mx-auto">
+          You have successfully hired a candidate for this role. Redirecting to dashboard...
+        </p>
+        <div className="flex flex-col sm:flex-row justify-center gap-4 pt-8">
+          <Button size="lg" variant="outline" onClick={() => window.location.href = '/'}>
+            Go to Dashboard
+          </Button>
+          <Button size="lg" onClick={() => window.location.href = '/new-role'}>
+            Create New Role
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto py-12 px-4 space-y-8">
@@ -292,6 +327,7 @@ function EvaluationContent() {
                         >
                           Reject
                         </Button>
+                        {candidate.response === "Interested" ? (
                          <Button 
                           className="w-full bg-green-600 hover:bg-green-700" 
                           onClick={() => handleGenerateOffer(candidate)}
@@ -300,6 +336,11 @@ function EvaluationContent() {
                           {generatingOfferId === candidate.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
                           Generate Offer Letter
                         </Button>
+                        ) : (
+                          <div className="w-full text-center px-4 py-2 border rounded bg-slate-100 text-slate-500 font-medium text-sm">
+                            Candidate not interested
+                          </div>
+                        )}
                        </div>
                     )}
                     
