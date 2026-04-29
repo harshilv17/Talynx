@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Mail, Users, CheckCircle } from "lucide-react";
@@ -16,6 +16,7 @@ interface ShortlistedCandidate {
 }
 
 function OutreachContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const jdId = searchParams.get("jdId");
   
@@ -202,6 +203,14 @@ function OutreachContent() {
       {outreachSuccess && (
         <div className="bg-green-100 text-green-800 p-4 rounded-md text-center font-medium border border-green-200">
           Success! The automated outreach sequence has been initiated for all shortlisted candidates.
+        </div>
+      )}
+
+      {outreachSuccess && (
+        <div className="flex justify-end pt-4">
+          <Button size="lg" className="px-8" onClick={() => router.push(`/feature4/evaluation?jdId=${jdId}`)}>
+            Proceed to Evaluation &rarr;
+          </Button>
         </div>
       )}
 
