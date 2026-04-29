@@ -9,6 +9,7 @@ interface CandidateCardProps {
   candidate: CandidateResult;
   rank: number;
   onAction?: (candidateId: string, action: string) => void;
+  onViewResume?: (candidate: CandidateResult) => void;
 }
 
 function getScoreColor(score: number): string {
@@ -32,7 +33,7 @@ function getStatusBadge(status: string) {
   }
 }
 
-export function CandidateCard({ candidate, rank, onAction }: CandidateCardProps) {
+export function CandidateCard({ candidate, rank, onAction, onViewResume }: CandidateCardProps) {
   return (
     <Card className={`shadow-md hover:shadow-lg transition-all duration-200 bg-gradient-to-br ${getScoreBg(candidate.score)} flex flex-col`}>
       <CardHeader className="pb-3">
@@ -86,15 +87,25 @@ export function CandidateCard({ candidate, rank, onAction }: CandidateCardProps)
         )}
       </CardContent>
       <CardFooter className="flex justify-between items-center pt-2 pb-4 px-6 border-t border-slate-100/50">
-        <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            onClick={() => onAction?.(candidate.id, 'reject')}
-            disabled={candidate.status === 'rejected'}
-        >
-            Reject
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-slate-600 hover:text-slate-900"
+              onClick={() => onViewResume?.(candidate)}
+          >
+              View Resume
+          </Button>
+          <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => onAction?.(candidate.id, 'reject')}
+              disabled={candidate.status === 'rejected'}
+          >
+              Reject
+          </Button>
+        </div>
         <div className="flex gap-2">
             <Button 
                 variant="outline" 

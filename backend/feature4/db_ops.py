@@ -66,6 +66,36 @@ def mark_candidate_offered(candidate_id: str, offer_text: str) -> dict | None:
         return_document=ReturnDocument.AFTER,
     )
 
+def mark_candidate_hired(candidate_id: str) -> dict | None:
+    """Advance candidate status to HIRED and close the JD."""
+    try:
+        oid = ObjectId(candidate_id)
+    except Exception:
+        return None
+
+    doc = get_sourcing_candidates().find_one({"_id": oid}, {"status": 1, "job_id": 1})
+    if not doc:
+        return None
+    assert_valid_transition(doc.get("status", ""), CandidateStatus.HIRED.value)
+
+    updated = get_sourcing_candidates().find_one_and_update(
+        {"_id": oid},
+        {"$set": {
+            "status":      CandidateStatus.HIRED,
+            "hired_at":    datetime.utcnow(),
+            "updated_at":  datetime.utcnow(),
+        }},
+        return_document=ReturnDocument.AFTER,
+    )
+    
+    # Close the JD
+    from core.mongodb import get_jd_collection
+    get_jd_collection().update_one(
+        {"job_id": doc.get("job_id")},
+        {"$set": {"status": "closed"}}
+    )
+    return updated
+
 
 def mark_candidate_rejected(candidate_id: str) -> dict | None:
     """Advance candidate status to REJECTED."""

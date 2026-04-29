@@ -29,6 +29,7 @@ export function SourcingView({ threadId }: SourcingViewProps) {
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
+  const [selectedCandidate, setSelectedCandidate] = useState<CandidateResult | null>(null);
 
   const fetchCandidates = useCallback(async () => {
     try {
@@ -257,8 +258,46 @@ export function SourcingView({ threadId }: SourcingViewProps) {
                 candidate={candidate}
                 rank={index + 1}
                 onAction={handleCandidateAction}
+                onViewResume={setSelectedCandidate}
               />
             ))}
+          </div>
+        )}
+
+        {selectedCandidate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <Card className="w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col">
+              <div className="border-b bg-slate-50 flex flex-row items-center justify-between p-6">
+                <div>
+                  <h2 className="text-xl font-bold">{selectedCandidate.name} - Resume</h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {selectedCandidate.experience} years experience | Match: {selectedCandidate.score}%
+                  </p>
+                </div>
+                <Button variant="ghost" onClick={() => setSelectedCandidate(null)}>Close</Button>
+              </div>
+              <div className="p-6 overflow-y-auto space-y-4">
+                <div>
+                  <h3 className="font-semibold text-sm text-slate-700 mb-2">Skills</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedCandidate.skills.map(s => (
+                      <span key={s} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md border border-slate-200">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm text-slate-700 mb-2">Resume Document</h3>
+                  <pre className="whitespace-pre-wrap font-sans text-slate-800 text-sm leading-relaxed border p-4 rounded-md bg-white">
+                    {selectedCandidate.resume_text}
+                  </pre>
+                </div>
+              </div>
+              <div className="p-4 border-t bg-slate-50 flex justify-end gap-2">
+                 <Button onClick={() => setSelectedCandidate(null)}>Close Resume</Button>
+              </div>
+            </Card>
           </div>
         )}
       </div>
