@@ -1,42 +1,59 @@
 # Setup & Installation
 
-## Environment Variables
-Create a `.env` file in the `backend/` directory:
+Follow these steps to configure and run the Autonomous Talent Acquisition (ATA) system locally.
+
+## Prerequisites
+- Node.js (v18+)
+- Python 3.10+
+- MongoDB Atlas account (or local MongoDB)
+
+## 1. Environment Configuration
+
+### Backend
+Create a `.env` file in the `backend` directory based on the `.env.example`:
+
 ```env
-GROQ_API_KEY=your_groq_api_key
-OPENAI_API_KEY=your_openai_api_key
-MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
-MONGO_DB_NAME=ata
+# backend/.env
+MONGODB_URI=mongodb+srv://<user>:<password>@cluster...
+OPENAI_API_KEY=sk-...
+GITHUB_TOKEN=ghp_...
 CORS_ORIGINS=http://localhost:3000
 ```
 
-Create a `.env.local` file in the `frontend/` directory:
+### Frontend
+Create a `.env.local` file in the `frontend` directory:
+
 ```env
+# frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-## Backend Setup
-1. Navigate to the backend directory: `cd backend`
-2. Create a virtual environment: `python3 -m venv venv`
-3. Activate the environment: `source venv/bin/activate`
-4. Install dependencies: `pip install -r requirements.txt`
+## 2. Backend Setup
+Navigate to the `backend` directory and install the Python requirements:
 
-## Frontend Setup
-1. Navigate to the frontend directory: `cd frontend`
-2. Install dependencies: `npm install`
-
-## Running the Project
-### Terminal 1 (Backend)
 ```bash
 cd backend
+python -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Run the FastAPI server:
+```bash
 uvicorn main:app --reload --port 8000
 ```
 
-### Terminal 2 (Frontend)
+## 3. Frontend Setup
+Navigate to the `frontend` directory and install the Node dependencies:
+
 ```bash
 cd frontend
+npm install
+```
+
+Run the Next.js development server:
+```bash
 npm run dev
 ```
 
-The frontend will be accessible at `http://localhost:3000` and the API docs at `http://localhost:8000/docs`.
+Visit `http://localhost:3000` to start using the system.

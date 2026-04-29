@@ -41,7 +41,9 @@ function EvaluationContent() {
   const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
   const [generatingOfferId, setGeneratingOfferId] = useState<string | null>(null);
   const [offerLetter, setOfferLetter] = useState<string | null>(null);
+  const [offerDetails, setOfferDetails] = useState<{role: string, salary: string} | null>(null);
   const [offerCandidate, setOfferCandidate] = useState<Candidate | null>(null);
+  const [sendingOfferId, setSendingOfferId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!jdId) {
@@ -105,9 +107,13 @@ function EvaluationContent() {
   const handleGenerateOffer = async (candidate: Candidate) => {
     setGeneratingOfferId(candidate.id);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/v1/feature4/offer/${candidate.id}`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/feature4/generate-offer`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidate_id: candidate.id,
+          jd_id: jdId
+        })
       });
       if (!res.ok) {
         const errorData = await res.json();
@@ -116,16 +122,50 @@ function EvaluationContent() {
       const data = await res.json();
       
       setOfferLetter(data.offer_text);
+      setOfferDetails({ role: data.role, salary: data.salary });
       setOfferCandidate(candidate);
-      
-      setCandidates(prev => prev.map(c => 
-        c.id === candidate.id ? { ...c, status: "offered" } : c
-      ));
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Failed to generate offer.");
     } finally {
       setGeneratingOfferId(null);
+    }
+  };
+
+  const handleConfirmOffer = async (candidate: Candidate) => {
+    setSendingOfferId(candidate.id);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/feature4/offer/${candidate.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Offer sending failed");
+      }
+      
+      setCandidates(prev => prev.map(c => 
+        c.id === candidate.id ? { ...c, status: "offered" } : c
+      ));
+      setOfferLetter(null);
+      setOfferCandidate(null);
+      setOfferDetails(null);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to send offer.");
+    } finally {
+      setSendingOfferId(null);
+    }
+  };
+
+  const handleReject = async (candidate: Candidate) => {
+    try {
+      // Opting to quickly update UI for demo purposes
+      setCandidates(prev => prev.map(c => 
+        c.id === candidate.id ? { ...c, status: "rejected" } : c
+      ));
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -245,14 +285,22 @@ function EvaluationContent() {
                     )}
                     
                     {candidate.evaluation && candidate.decision?.recommendation.startsWith('hire') && candidate.status === "evaluated" && (
-                       <Button 
-                        className="w-full bg-green-600 hover:bg-green-700" 
-                        onClick={() => handleGenerateOffer(candidate)}
-                        disabled={generatingOfferId === candidate.id}
-                      >
-                        {generatingOfferId === candidate.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                        Generate Offer Letter
-                      </Button>
+                       <div className="flex gap-2">
+                         <Button 
+                          className="w-full bg-slate-100 text-slate-700 hover:bg-slate-200" 
+                          onClick={() => handleReject(candidate)}
+                        >
+                          Reject
+                        </Button>
+                         <Button 
+                          className="w-full bg-green-600 hover:bg-green-700" 
+                          onClick={() => handleGenerateOffer(candidate)}
+                          disabled={generatingOfferId === candidate.id}
+                        >
+                          {generatingOfferId === candidate.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                          Generate Offer Letter
+                        </Button>
+                       </div>
                     )}
                     
                     {candidate.status === "offered" && (
@@ -268,24 +316,48 @@ function EvaluationContent() {
         )}
       </div>
 
-      {offerLetter && offerCandidate && (
+      {offerLetter && offerCandidate && offerDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <Card className="w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
             <CardHeader className="border-b bg-slate-50 flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Offer Letter: {offerCandidate.name}</CardTitle>
-                <CardDescription>Generated by Talynx ATS</CardDescription>
+                <CardDescription>
+                  <span className="font-medium text-slate-700">Role:</span> {offerDetails.role} &nbsp;|&nbsp; 
+                  <span className="font-medium text-slate-700">Salary:</span> {offerDetails.salary}
+                </CardDescription>
               </div>
-              <Button variant="ghost" onClick={() => setOfferLetter(null)}>Close</Button>
+              <Button variant="ghost" onClick={() => setOfferLetter(null)}>Cancel</Button>
             </CardHeader>
             <CardContent className="p-6 overflow-y-auto">
-              <pre className="whitespace-pre-wrap font-serif text-slate-800 text-sm leading-relaxed">
+              <pre className="whitespace-pre-wrap font-serif text-slate-800 text-sm leading-relaxed border p-4 rounded-md bg-white">
                 {offerLetter}
               </pre>
             </CardContent>
             <div className="p-4 border-t bg-slate-50 flex justify-end gap-2">
-               <Button variant="outline" onClick={() => setOfferLetter(null)}>Done</Button>
-               <Button className="bg-green-600 hover:bg-green-700">Send Offer via Email</Button>
+               <Button variant="outline" onClick={() => setOfferLetter(null)}>Cancel</Button>
+               <Button 
+                variant="outline" 
+                onClick={() => {
+                  const blob = new Blob([offerLetter!], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `Offer_Letter_${offerCandidate.name.replace(/\s+/g, '_')}.txt`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+               >
+                 Download Offer
+               </Button>
+               <Button 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => handleConfirmOffer(offerCandidate)}
+                disabled={sendingOfferId === offerCandidate.id}
+               >
+                 {sendingOfferId === offerCandidate.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                 Confirm & Send
+               </Button>
             </div>
           </Card>
         </div>

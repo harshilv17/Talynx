@@ -1,23 +1,29 @@
-# ATA - Autonomous Talent Acquisition
+# Talynx Autonomous Talent Acquisition (ATA)
 
-## Project Overview
-ATA (Autonomous Talent Acquisition) is an AI-powered hiring automation system designed to streamline the recruitment process from intake to offer generation. It provides a multi-agent orchestration platform that evaluates candidates and makes autonomous hiring decisions.
+Talynx ATA is a next-generation, AI-driven Applicant Tracking System (ATS) that automates the entire recruitment pipeline, from Job Description generation to final Offer issuance.
 
 ## Features
-1. **Feature 1: JD Generation** - Creates AI-generated, compliant job descriptions from a simple intake role brief.
-2. **Feature 2: Sourcing & Screening** - Automatically sources candidates, generates semantic embeddings, and filters candidate profiles based on the generated JD.
-3. **Feature 3: Outreach** - Handles automated candidate outreach and schedules interviews seamlessly.
-4. **Feature 4: Evaluation & Offer** - Evaluates candidates post-interview, generates comprehensive scoring metrics, displays decision recommendations, and automatically generates a downloadable offer letter.
 
-## System Flow
-1. **Intake**: Recruiter submits a basic role requirement.
-2. **JD Generation**: The system creates a full job description (Feature 1).
-3. **Sourcing**: Candidates are matched and ranked against the JD (Feature 2).
-4. **Outreach**: Automated emails are sent for interview scheduling (Feature 3).
-5. **Evaluation**: Interview data is processed to generate candidate scorecards (Feature 4).
-6. **Offer**: A finalized offer letter is generated for successful candidates.
+- **Feature 1: JD Generation**  
+  Interactively collect requirements from hiring managers via chat, then autonomously generate and publish highly optimized Job Descriptions.
+- **Feature 2: Sourcing & Screening**  
+  Uses the GitHub API (combined with rich Demo candidate fallbacks) to source candidates natively. Features semantic skill matching via SentenceTransformers to score and rank candidate fit. 
+- **Feature 3: Outreach**  
+  Generates personalized outreach sequences. Automatically manages replies (simulated in demo mode) and transitions interested respondents directly to the evaluation queue.
+- **Feature 4: Evaluation & Offer**  
+  Calculates deep technical, experience, and holistic match scores. Uses AI heuristics to output structured Hiring Decisions (e.g. `HIRE (Strong)` vs `NO HIRE`). Automatically generates tailored offer letters and manages the digital sign-off states.
 
-## Tech Stack
-- **Backend**: Python, FastAPI, MongoDB
-- **Frontend**: Next.js 14, React, Tailwind CSS
-- **AI/LLM**: Groq / OpenAI Integration
+## End-to-End Workflow
+
+1. Start by clicking **Create New Role** on the Dashboard. Chat with the AI to refine your requirements, then **Publish**.
+2. Advance to the **Pipeline (Sourcing)**. The AI will autonomously find and screen real developers on GitHub and combine them with demo dataset profiles.
+3. Once satisfied, Shortlist your top choices and proceed to **Outreach**.
+4. Start the outreach sequence. The system will email the candidates, simulating their responses behind the scenes. 
+5. Proceed to the **Evaluation** hub. You will only see candidates who responded positively ("Interested").
+6. Click **Evaluate** to trigger the final scorecard algorithm. 
+7. If the candidate clears the high-bar recommendation (>=75%), generate their **Offer Letter**, preview it, and securely send it via email to close the loop!
+
+## Documentation Navigation
+- [Setup & Installation](./SETUP.md)
+- [Architecture & Tech Stack](./ARCHITECTURE.md)
+- [Automated Testing](./TESTING.md)
