@@ -89,7 +89,7 @@ def root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {"status": "ok"}
 
 
 @app.on_event("startup")
