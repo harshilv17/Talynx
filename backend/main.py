@@ -28,15 +28,33 @@ app = FastAPI(
 )
 
 import os
-_cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://frontend:3000").split(",")
+import logging
+import time
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Parse CORS origins from env, with fallbacks including Vercel deployment
+env_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://frontend:3000,https://talynx.vercel.app")
+_cors_origins = [o.strip() for o in env_origins.split(",") if o.strip()]
+
+logger.info(f"CORS origins configured: {_cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _cors_origins if o.strip()],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    logger.info(f"Path: {request.url.path} Method: {request.method} Status: {response.status_code} Time: {process_time:.4f}s")
+    return response
 
 
 class NormalizePathMiddleware(BaseHTTPMiddleware):
@@ -75,10 +93,11 @@ def health_check():
 
 
 @app.on_event("startup")
-def test_db_connection():
+def startup_event():
+    logger.info("Starting up ATA backend server...")
     from core.mongodb import get_mongo_client
     try:
         get_mongo_client().admin.command("ping")
-        print("✅ MongoDB Atlas connection successful")
+        logger.info("✅ MongoDB Atlas connection successful")
     except Exception as e:
-        print(f"❌ MongoDB connection failed: {e}")
+        logger.error(f"❌ MongoDB connection failed: {e}")
