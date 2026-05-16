@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { CandidateResult } from "@/lib/types";
 import { useState, useEffect } from "react";
+import { FeedbackPanel } from "./FeedbackPanel";
 
 interface CandidateCardProps {
   candidate: CandidateResult;
@@ -73,7 +74,7 @@ export function CandidateCard({ candidate, rank, onAction, onViewResume, onSaveN
                 <CardTitle className="text-lg">{candidate.name}</CardTitle>
                 <div className="mt-1 flex items-center gap-2">
                   {getStatusBadge(candidate.status)}
-                  {candidate.source === 'demo' ? (
+                  {candidate.type === 'demo' ? (
                     <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">Demo</Badge>
                   ) : (
                     <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Live</Badge>
@@ -103,14 +104,30 @@ export function CandidateCard({ candidate, rank, onAction, onViewResume, onSaveN
           ))}
         </div>
 
-        <p className="text-sm text-slate-600 leading-relaxed line-clamp-3">
-          {candidate.resume_text}
-        </p>
+        {candidate.type === "live" ? (
+          <p className="text-sm text-slate-600 leading-relaxed line-clamp-2 italic">
+             {candidate.github_profile?.bio || "No bio provided."} <br/>
+             {candidate.github_profile?.activity_summary || "Active GitHub Developer."}
+          </p>
+        ) : (
+          <p className="text-sm text-slate-600 leading-relaxed line-clamp-3">
+            {candidate.resume_text}
+          </p>
+        )}
 
         {candidate.status === 'rejected' && candidate.rejection_reason && (
           <div className="mt-2 p-2 bg-red-50 border border-red-100 rounded-md text-xs text-red-800">
             <strong>Rejection Reason:</strong> {candidate.rejection_reason}
           </div>
+        )}
+
+        {/* RAG-based AI Feedback — only for rejected candidates who didn't decline */}
+        {candidate.status === 'rejected' && candidate.response !== 'Not Interested' && (
+          <FeedbackPanel
+            candidateId={candidate.id}
+            candidateName={candidate.name}
+            existingFeedback={candidate.rejection_feedback}
+          />
         )}
 
         <div className="pt-2 border-t mt-4">
@@ -142,7 +159,7 @@ export function CandidateCard({ candidate, rank, onAction, onViewResume, onSaveN
               className="text-slate-600 hover:text-slate-900"
               onClick={() => onViewResume?.(candidate)}
           >
-              View Resume
+              {candidate.type === 'live' ? 'View Profile' : 'View Resume'}
           </Button>
           <Button 
               variant="outline" 

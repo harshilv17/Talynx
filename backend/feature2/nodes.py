@@ -1,7 +1,6 @@
 """LangGraph nodes for Feature 2: Sourcing & Screening."""
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
+from core.embedder import embed_texts, cosine_similarity_matrix, calibrate_score
 from feature2.state import Feature2State
 from feature2 import db_ops
 from feature1.db_ops import get_role_brief_by_thread
@@ -15,23 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 
-def _get_embeddings(texts: list[str]) -> list[list[float]]:
-    """Compute TF-IDF vectors for the given texts.
-    
-    The vectorizer is fit on the full corpus each call so the first text
-    (the JD) and the candidate texts share the same vocabulary — this
-    gives meaningful cosine similarity scores without loading any model.
-    """
-    vectorizer = TfidfVectorizer(stop_words="english", max_features=5000)
-    matrix = vectorizer.fit_transform(texts)  # sparse, tiny footprint
-    return matrix.toarray().tolist()
 
-
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    a_arr = np.array(a).reshape(1, -1)
-    b_arr = np.array(b).reshape(1, -1)
-    score = sklearn_cosine_similarity(a_arr, b_arr)[0][0]
-    return float(score)
 
 
 def _jd_to_text(jd: dict) -> str:
@@ -143,7 +126,7 @@ def fetch_candidates_node(state: Feature2State) -> Feature2State:
 
 
 def embedding_node(state: Feature2State) -> Feature2State:
-    print("[Feature2] Generating embeddings...")
+    print("[Feature2] Generating semantic embeddings...")
     if state.get("status") == "failed":
         return state
 
@@ -159,14 +142,13 @@ def embedding_node(state: Feature2State) -> Feature2State:
 
     try:
         jd_text = _jd_to_text(state["jd_content"])
-
         candidate_texts = [c["resume_text"] for c in state["candidates"]]
 
         all_texts = [jd_text] + candidate_texts
-        all_embeddings = _get_embeddings(all_texts)
+        all_embeddings = embed_texts(all_texts)
 
-        state["jd_embedding"] = all_embeddings[0]
-        state["candidate_embeddings"] = all_embeddings[1:]
+        state["jd_embedding"] = all_embeddings[0].tolist()
+        state["candidate_embeddings"] = [e.tolist() for e in all_embeddings[1:]]
         return state
 
     except Exception as e:
@@ -176,23 +158,26 @@ def embedding_node(state: Feature2State) -> Feature2State:
 
 
 def ranking_node(state: Feature2State) -> Feature2State:
-    print("[Feature2] Ranking candidates...")
+    print("[Feature2] Ranking candidates with semantic similarity...")
     if state.get("status") == "failed":
         return state
 
-    jd_embedding = state["jd_embedding"]
+    jd_embedding = np.array(state["jd_embedding"])
     candidates = state["candidates"]
-    candidate_embeddings = state["candidate_embeddings"]
+    candidate_embeddings = np.array(state["candidate_embeddings"])
+
+    # Batch cosine similarity
+    raw_scores = cosine_similarity_matrix(jd_embedding, candidate_embeddings)
 
     ranked = []
     for i, cand in enumerate(candidates):
-        score = _cosine_similarity(jd_embedding, candidate_embeddings[i])
+        calibrated = calibrate_score(float(raw_scores[i]))
         ranked.append({
             "name": cand["name"],
             "skills": cand["skills"],
             "experience": cand["experience"],
             "resume_text": cand["resume_text"],
-            "score": round(score * 100, 2),
+            "score": calibrated,
             "source": cand.get("source", "github"),
         })
 

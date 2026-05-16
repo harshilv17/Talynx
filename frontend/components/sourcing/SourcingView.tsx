@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Search, Users, CheckCircle, AlertCircle, BarChart2 } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/utils";
 import type { SourcingStatusResponse, CandidateResult } from "@/lib/types";
+import { bulkGenerateFeedback, bulkSendFeedbackEmail } from "@/services/feature4";
 
 interface SourcingViewProps {
   threadId: string;
@@ -33,6 +34,10 @@ export function SourcingView({ threadId }: SourcingViewProps) {
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateResult | null>(null);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+
+  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
+  const [isBulkSending, setIsBulkSending] = useState(false);
+  const [bulkStats, setBulkStats] = useState<{ processed: number, success: number, fail: number, msg?: string } | null>(null);
 
   const fetchCandidates = useCallback(async () => {
     try {
@@ -194,6 +199,46 @@ export function SourcingView({ threadId }: SourcingViewProps) {
     ? [...compareCandidatesList].sort((a, b) => b.score - a.score)[0] 
     : null;
 
+  const handleBulkGenerate = async () => {
+    setIsBulkGenerating(true);
+    setBulkStats(null);
+    try {
+      const res = await bulkGenerateFeedback(threadId);
+      setBulkStats({
+        processed: res.total_processed,
+        success: res.success_count,
+        fail: res.failure_count,
+        msg: `Generated feedback for ${res.success_count} candidates.`
+      });
+      fetchCandidates(); // Refresh to show generated feedback
+    } catch (e: any) {
+      setBulkStats({ processed: 0, success: 0, fail: 0, msg: e.message || "Bulk generation failed" });
+    } finally {
+      setIsBulkGenerating(false);
+      setTimeout(() => setBulkStats(null), 5000);
+    }
+  };
+
+  const handleBulkSend = async () => {
+    setIsBulkSending(true);
+    setBulkStats(null);
+    try {
+      const res = await bulkSendFeedbackEmail(threadId);
+      setBulkStats({
+        processed: res.total_processed,
+        success: res.success_count,
+        fail: res.failure_count,
+        msg: `Sent emails to ${res.success_count} candidates.`
+      });
+      fetchCandidates(); // Refresh to show email_sent status
+    } catch (e: any) {
+      setBulkStats({ processed: 0, success: 0, fail: 0, msg: e.message || "Bulk send failed" });
+    } finally {
+      setIsBulkSending(false);
+      setTimeout(() => setBulkStats(null), 5000);
+    }
+  };
+
   if (status?.status === "completed") {
     if (!candidates || candidates.length === 0) {
       return (
@@ -291,6 +336,39 @@ export function SourcingView({ threadId }: SourcingViewProps) {
           </div>
         </div>
 
+        {activeTab === "rejected" && counts.rejected > 0 && (
+          <div className="mb-6 p-4 bg-violet-50 border border-violet-200 rounded-lg flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-violet-800">Bulk Rejection Feedback</h3>
+              <p className="text-sm text-violet-600">Generate or send AI feedback for all rejected candidates at once.</p>
+              {bulkStats && (
+                <p className="text-xs font-medium mt-1 text-slate-700">
+                  {bulkStats.msg} ({bulkStats.success} succeeded, {bulkStats.fail} failed)
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleBulkGenerate} 
+                disabled={isBulkGenerating || isBulkSending}
+                className="text-violet-700 border-violet-300 hover:bg-violet-100"
+              >
+                {isBulkGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Generate All Feedback
+              </Button>
+              <Button 
+                onClick={handleBulkSend} 
+                disabled={isBulkGenerating || isBulkSending}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                {isBulkSending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Send All Emails
+              </Button>
+            </div>
+          </div>
+        )}
+
         {filteredCandidates.length === 0 ? (
           <div className="text-center p-12 border border-dashed rounded-lg bg-slate-50 text-slate-500">
             No candidates found in this category.
@@ -317,7 +395,7 @@ export function SourcingView({ threadId }: SourcingViewProps) {
             <Card className="w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col">
               <div className="border-b bg-slate-50 flex flex-row items-center justify-between p-6">
                 <div>
-                  <h2 className="text-xl font-bold">{selectedCandidate.name} - Resume</h2>
+                  <h2 className="text-xl font-bold">{selectedCandidate.name} - {selectedCandidate.type === 'live' ? 'GitHub Profile' : 'Resume'}</h2>
                   <p className="text-sm text-slate-500 mt-1">
                     {selectedCandidate.experience} years experience | Match: {selectedCandidate.score}%
                   </p>
@@ -335,15 +413,53 @@ export function SourcingView({ threadId }: SourcingViewProps) {
                     ))}
                   </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-sm text-slate-700 mb-2">Resume Document</h3>
-                  <pre className="whitespace-pre-wrap font-sans text-slate-800 text-sm leading-relaxed border p-4 rounded-md bg-white">
-                    {selectedCandidate.resume_text}
-                  </pre>
-                </div>
+                {selectedCandidate.type === 'live' ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4 bg-white p-4 rounded-md border">
+                      {selectedCandidate.github_profile?.avatar_url && (
+                        <img src={selectedCandidate.github_profile.avatar_url} alt="Avatar" className="w-16 h-16 rounded-full" />
+                      )}
+                      <div>
+                        <h3 className="font-bold text-lg">{selectedCandidate.name} (@{selectedCandidate.github_profile?.username})</h3>
+                        <p className="text-sm text-slate-600">{selectedCandidate.github_profile?.bio || 'No bio'}</p>
+                        <div className="flex gap-4 mt-2 text-xs text-slate-500 font-medium">
+                           <span>Followers: {selectedCandidate.github_profile?.followers}</span>
+                           <span>Public Repos: {selectedCandidate.github_profile?.public_repos}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="font-semibold text-sm text-slate-700 mb-2">Top Repositories</h3>
+                      <div className="grid gap-3">
+                        {selectedCandidate.github_profile?.top_repositories?.map((repo: any, idx: number) => (
+                          <div key={idx} className="bg-white p-3 border rounded-md">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="font-semibold text-blue-600">{repo.name}</span>
+                              <Badge variant="outline" className="text-xs bg-slate-50">★ {repo.stars}</Badge>
+                            </div>
+                            <p className="text-xs text-slate-600 line-clamp-2">{repo.description || "No description"}</p>
+                            {repo.language && (
+                              <div className="mt-2 text-xs font-medium text-slate-500 flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-blue-400"></span> {repo.language}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <h3 className="font-semibold text-sm text-slate-700 mb-2">Resume Document</h3>
+                    <pre className="whitespace-pre-wrap font-sans text-slate-800 text-sm leading-relaxed border p-4 rounded-md bg-white">
+                      {selectedCandidate.resume_text}
+                    </pre>
+                  </div>
+                )}
               </div>
               <div className="p-4 border-t bg-slate-50 flex justify-end gap-2">
-                 <Button onClick={() => setSelectedCandidate(null)}>Close Resume</Button>
+                 <Button onClick={() => setSelectedCandidate(null)}>Close</Button>
               </div>
             </Card>
           </div>

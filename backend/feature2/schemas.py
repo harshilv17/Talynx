@@ -15,6 +15,7 @@ class CandidateResult(BaseModel):
     response: Optional[str] = None
     evaluation: Optional[dict] = None
     notes: Optional[str] = None
+    rejection_feedback: Optional[dict] = None
 
 
 class StartSourcingResponse(BaseModel):

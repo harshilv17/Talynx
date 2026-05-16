@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { getApiBaseUrl } from "@/lib/utils";
-import { Briefcase, Users, Mail, FileText, Loader2, Plus, ChevronRight, CheckCircle } from "lucide-react";
+import { Briefcase, Users, Mail, FileText, Loader2, Plus, ChevronRight, CheckCircle, Clock } from "lucide-react";
+import { PipelineActionMenu } from "@/components/PipelineActionMenu";
+import { completePipeline, archivePipeline, restorePipeline, deletePipeline } from "@/services/dashboard";
 
 interface JobStats {
   total: number;
@@ -13,44 +16,60 @@ interface JobStats {
   rejected: number;
   saved: number;
   pending: number;
+  hired: number;
 }
 
 interface JobData {
   job_id: string;
   title: string;
-  status: string;
+  pipeline_status: string;
+  duration_days: number;
+  created_at?: string;
   stats: JobStats;
-  outreach: { emails_sent: number; responses: number };
-  offers: { generated: number; accepted: number; hired_candidates?: string[] };
+  hired_candidates?: string[];
 }
 
 export default function Home() {
   const [jobs, setJobs] = useState<JobData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"ACTIVE" | "COMPLETED" | "ARCHIVED">("ACTIVE");
+
+  async function loadDashboard() {
+    setLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/dashboard`);
+      if (res.ok) {
+        const data = await res.json();
+        setJobs(data.jobs);
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard data", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadDashboard() {
-      try {
-        const res = await fetch(`${getApiBaseUrl()}/api/v1/dashboard`);
-        if (res.ok) {
-          const data = await res.json();
-          setJobs(data.jobs);
-        }
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadDashboard();
   }, []);
+
+  const handleAction = async (action: (id: string) => Promise<any>, jobId: string) => {
+    try {
+      await action(jobId);
+      await loadDashboard();
+    } catch (e) {
+      alert("Action failed. Please try again.");
+    }
+  };
+
+  const filteredJobs = jobs.filter(j => j.pipeline_status === activeTab);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 py-12 px-4 sm:px-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Welcome to ATA</h1>
-          <p className="text-lg text-slate-500">Your AI-powered ATS dashboard.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Pipeline Dashboard</h1>
+          <p className="text-lg text-slate-500">Manage your recruitment lifecycles.</p>
         </div>
         <Link href="/new-role">
           <Button size="lg" className="gap-2">
@@ -60,92 +79,108 @@ export default function Home() {
         </Link>
       </div>
 
+      <div className="flex border-b border-slate-200">
+        {(["ACTIVE", "COMPLETED", "ARCHIVED"] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab 
+                ? "border-primary text-primary" 
+                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+            }`}
+          >
+            {tab.charAt(0) + tab.slice(1).toLowerCase()} ({jobs.filter(j => j.pipeline_status === tab).length})
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex justify-center items-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : jobs.length === 0 ? (
-        <Card className="border-dashed shadow-none">
-          <CardContent className="py-12 text-center text-slate-500">
+      ) : filteredJobs.length === 0 ? (
+        <Card className="border-dashed shadow-none bg-slate-50/50">
+          <CardContent className="py-16 text-center text-slate-500">
             <Briefcase className="h-12 w-12 mx-auto text-slate-300 mb-4" />
-            <p className="text-lg font-medium text-slate-900 mb-1">No roles found</p>
-            <p className="mb-4">Get started by creating your first job description.</p>
-            <Link href="/new-role">
-              <Button variant="outline">Create New Role</Button>
-            </Link>
+            <p className="text-lg font-medium text-slate-900 mb-1">No {activeTab.toLowerCase()} pipelines found</p>
+            <p className="mb-4">
+              {activeTab === "ACTIVE" && "Get started by creating your first job description."}
+              {activeTab === "COMPLETED" && "Mark an active pipeline as 'Complete Hiring' when done."}
+              {activeTab === "ARCHIVED" && "Archived pipelines will appear here."}
+            </p>
+            {activeTab === "ACTIVE" && (
+              <Link href="/new-role">
+                <Button variant="outline">Create New Role</Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-6">
-          <h2 className="text-xl font-semibold text-slate-900 border-b pb-2">Active Pipelines</h2>
-          {jobs.map(job => {
-            const isPublished = job.status === "published";
-            const routeUrl = isPublished ? `/sourcing/${job.job_id}` : `/review/${job.job_id}`;
+          {filteredJobs.map(job => {
+            const isCompleted = job.pipeline_status === "COMPLETED";
             return (
-              <Card key={job.job_id} className="overflow-hidden hover:border-slate-300 transition-colors relative group">
-                <Link href={routeUrl} className="absolute inset-0 z-10" aria-label={`View pipeline for ${job.title}`} />
+              <Card key={job.job_id} className={`overflow-visible hover:border-slate-300 transition-colors relative group ${isCompleted ? "opacity-80" : ""}`}>
                 <div className="flex flex-col md:flex-row">
                   {/* Info Section */}
-                  <div className="p-6 md:w-1/3 border-b md:border-b-0 md:border-r bg-slate-50/50 flex flex-col justify-center">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full uppercase tracking-wider
-                        ${job.status === 'closed' ? 'bg-slate-200 text-slate-800' : isPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}
-                      `}>
-                        {job.status}
+                  <div className="p-6 md:w-1/3 border-b md:border-b-0 md:border-r bg-slate-50/50 flex flex-col justify-center relative">
+                    <div className="absolute top-4 right-4 z-20">
+                      <PipelineActionMenu 
+                        jobId={job.job_id}
+                        status={job.pipeline_status}
+                        onComplete={() => handleAction(completePipeline, job.job_id)}
+                        onArchive={() => handleAction(archivePipeline, job.job_id)}
+                        onRestore={() => handleAction(restorePipeline, job.job_id)}
+                        onDelete={() => handleAction(deletePipeline, job.job_id)}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mb-2 pr-8">
+                      <Badge variant="outline" className={`uppercase tracking-wider ${
+                        job.pipeline_status === 'ACTIVE' ? 'bg-green-100 text-green-800 border-green-200' : 
+                        job.pipeline_status === 'COMPLETED' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                        'bg-amber-100 text-amber-800 border-amber-200'
+                      }`}>
+                        {job.pipeline_status}
+                      </Badge>
+                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {job.duration_days} days
                       </span>
                     </div>
                     <h3 className="text-xl font-bold text-slate-900 mb-2 truncate" title={job.title}>
-                      {job.title}
+                      <Link href={`/sourcing/${job.job_id}`} className="hover:underline after:absolute after:inset-0">
+                        {job.title}
+                      </Link>
                     </h3>
                     <p className="text-sm text-slate-500 truncate" title={job.job_id}>ID: {job.job_id.slice(0, 8)}...</p>
                   </div>
                   
                   {/* Stats Section */}
-                  <div className="p-6 md:w-2/3 grid grid-cols-3 gap-4">
-                    {/* Candidates */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
-                        <Users className="h-4 w-4" /> Sourcing
-                      </div>
-                      <div className="text-2xl font-bold text-slate-900">{job.stats.total}</div>
-                      <div className="text-xs text-slate-500">
-                        {job.stats.shortlisted} shortlisted • {job.stats.pending} pending
-                      </div>
+                  <div className="p-6 md:w-2/3 grid grid-cols-2 sm:grid-cols-4 gap-4 pointer-events-none">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-500">Total Sourced</p>
+                      <p className="text-2xl font-bold text-slate-900">{job.stats.total}</p>
                     </div>
-
-                    {/* Outreach */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
-                        <Mail className="h-4 w-4" /> Outreach
-                      </div>
-                      <div className="text-2xl font-bold text-slate-900">{job.outreach.emails_sent}</div>
-                      <div className="text-xs text-slate-500">
-                        {job.outreach.responses} responded
-                      </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-500">Shortlisted</p>
+                      <p className="text-2xl font-bold text-slate-900">{job.stats.shortlisted}</p>
                     </div>
-
-                    {/* Offers */}
-                    <div className="space-y-2 relative">
-                      <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
-                        <FileText className="h-4 w-4" /> Offers
-                      </div>
-                      <div className="text-2xl font-bold text-slate-900">{job.offers.generated}</div>
-                      <div className="text-xs text-slate-500">
-                        {job.offers.accepted} accepted
-                      </div>
-                      
-                      <div className="absolute top-1/2 -translate-y-1/2 -right-2 p-2 text-slate-300 group-hover:text-slate-900 transition-colors z-20">
-                        <ChevronRight className="h-6 w-6" />
-                      </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-500">Rejected</p>
+                      <p className="text-2xl font-bold text-slate-900">{job.stats.rejected}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-500">Hired</p>
+                      <p className="text-2xl font-bold text-green-600">{job.stats.hired}</p>
                     </div>
                   </div>
                 </div>
                 
-                {job.status === "closed" && job.offers.hired_candidates && job.offers.hired_candidates.length > 0 && (
-                  <div className="w-full bg-green-50 p-3 border-t border-green-100 flex items-center justify-between">
-                     <span className="text-sm font-medium text-green-800 flex items-center gap-2">
+                {isCompleted && job.hired_candidates && job.hired_candidates.length > 0 && (
+                  <div className="w-full bg-green-50/80 p-3 border-t border-green-100 flex items-center justify-between text-sm text-green-800">
+                     <span className="font-medium flex items-center gap-2">
                        <CheckCircle className="h-4 w-4" /> 
-                       Hired: {job.offers.hired_candidates.join(", ")}
+                       Successfully Hired: {job.hired_candidates.join(", ")}
                      </span>
                   </div>
                 )}

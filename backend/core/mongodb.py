@@ -47,3 +47,22 @@ def get_shortlisted_candidates():
 
 def get_sourcing_candidates():
     return get_db()["sourcing_candidates"]
+
+
+def get_jd_collection():
+    """Alias for get_job_descriptions — used by feature4.db_ops to close JDs."""
+    return get_db()["job_descriptions"]
+
+
+def assert_pipeline_active(job_id: str):
+    """Raise HTTP 400 if the pipeline for this job_id is not ACTIVE."""
+    from fastapi import HTTPException
+    rb = get_role_briefs().find_one({"thread_id": job_id})
+    if not rb:
+        return
+    status = rb.get("pipeline_status", "ACTIVE")
+    if status != "ACTIVE":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Action not allowed. Pipeline is currently {status}."
+        )

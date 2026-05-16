@@ -5,12 +5,12 @@ cd "$ROOT"
 
 # ── Validate .env ─────────────────────────────────────────────────────────────
 if [ ! -f .env ]; then
-  echo "❌  .env not found. Copy .env.example and add your OPENAI_API_KEY."
+  echo "❌  .env not found. Copy .env.example and add your GROQ_API_KEY."
   exit 1
 fi
 source .env
-if [[ "$OPENAI_API_KEY" == *"your-openai"* ]] || [ -z "$OPENAI_API_KEY" ]; then
-  echo "❌  Please set a real OPENAI_API_KEY in .env"
+if [[ "$GROQ_API_KEY" == *"your-groq-key"* ]] || [ -z "$GROQ_API_KEY" ]; then
+  echo "❌  Please set a real GROQ_API_KEY in .env"
   exit 1
 fi
 

@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
+from bson.objectid import ObjectId
 
+from core.mongodb import assert_pipeline_active
 from feature2.schemas import (
     StartSourcingResponse, SourcingStatusResponse, 
     CandidateResult, SourcingCandidatesResponse, CandidateActionResponse,
@@ -33,6 +35,7 @@ def run_sourcing_background(thread_id: str, initial_state: Feature2State):
 @router.post("/start-sourcing/{thread_id}", response_model=StartSourcingResponse)
 def start_sourcing(thread_id: str, background_tasks: BackgroundTasks):
     """Trigger the Feature 2 sourcing workflow for a published JD."""
+    assert_pipeline_active(thread_id)
 
     sourcing_entry = db_ops.get_sourcing_queue_entry(thread_id)
     if not sourcing_entry:
@@ -113,6 +116,7 @@ def get_sourcing_candidates(job_id: str):
             response=c.get("response"),
             evaluation=c.get("evaluation"),
             notes=c.get("notes"),
+            rejection_feedback=c.get("rejection_feedback"),
         ))
         
     return SourcingCandidatesResponse(job_id=job_id, candidates=candidates)
@@ -139,6 +143,7 @@ def get_shortlisted_candidates(jd_id: str):
                 response=c.get("response"),
                 evaluation=c.get("evaluation"),
                 notes=c.get("notes"),
+                rejection_feedback=c.get("rejection_feedback"),
             ))
             
     return SourcingCandidatesResponse(job_id=jd_id, candidates=candidates)
@@ -146,6 +151,11 @@ def get_shortlisted_candidates(jd_id: str):
 @router.post("/candidate/{candidate_id}/{action}", response_model=CandidateActionResponse)
 def update_candidate_action(candidate_id: str, action: str, payload: CandidateActionRequest = None):
     """Update a candidate's status (shortlist, reject, save)."""
+    # Fetch candidate to get job_id
+    candidate = db_ops.get_sourcing_candidates().find_one({"_id": ObjectId(candidate_id)})
+    if candidate:
+        assert_pipeline_active(candidate.get("job_id"))
+
     print(f"[DEBUG] Received CandidateActionRequest: {payload}")
     valid_actions = {"shortlist", "reject", "save"}
     if action not in valid_actions:

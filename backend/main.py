@@ -16,6 +16,7 @@ from feature2.router import router as feature2_router
 from feature3.router import router as feature3_router
 from feature4.router import router as feature4_router
 from feature4.router import candidates_router
+from feature4.feedback.router import router as feedback_router
 from dashboard.router import router as dashboard_router
 
 app = FastAPI(
@@ -55,6 +56,7 @@ app.include_router(feature2_router)
 app.include_router(feature3_router)
 app.include_router(feature4_router)
 app.include_router(candidates_router)
+app.include_router(feedback_router)
 app.include_router(dashboard_router)
 
 

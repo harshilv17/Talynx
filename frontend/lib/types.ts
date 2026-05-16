@@ -62,9 +62,38 @@ export interface CandidateResult {
   rejection_reason?: string;
   resume_text: string;
   source?: string;
+  type?: string;
+  github_profile?: any;
   response?: string;
   evaluation?: any;
   notes?: string;
+  rejection_feedback?: RejectionFeedback;
+}
+
+export interface SkillGap {
+  skill: string;
+  importance: string;
+  recommendation: string;
+}
+
+export interface RejectionFeedback {
+  feedback_id: string;
+  generated_at: string;
+  version: number;
+  strengths: string[];
+  skill_gaps: SkillGap[];
+  experience_gaps: string[];
+  improvement_suggestions: string[];
+  technologies_to_learn: string[];
+  overall_summary: string;
+  encouragement: string;
+  email_sent: boolean;
+  rag_metadata: {
+    chunks_used: number;
+    retrieval_scores: number[];
+    embedding_model: string;
+    total_chunks: number;
+  };
 }
 
 export interface SourcingStatusResponse {

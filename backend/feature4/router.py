@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from bson.objectid import ObjectId
 from pydantic import BaseModel
 
-from core.mongodb import get_sourcing_candidates
+from core.mongodb import get_sourcing_candidates, assert_pipeline_active
 from feature2.db_ops import get_sourcing_candidates_by_job, get_published_jd
 from feature4.pipeline import run_evaluation, process_candidates
 from feature4.offer import generate_offer, send_offer_email, _compute_salary
@@ -42,6 +42,7 @@ def evaluate_candidates(request: EvaluateRequest):
     if not request.candidate_ids:
         raise HTTPException(status_code=400, detail="At least one candidate_id is required")
 
+    assert_pipeline_active(request.job_id)
     evaluated_docs, errors = run_evaluation(request.job_id, request.candidate_ids)
 
     result: list[EvaluatedCandidate] = []
@@ -114,6 +115,9 @@ def api_generate_offer(request: GenerateOfferRequest):
     candidate = get_sourcing_candidates().find_one({"_id": oid})
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+        
+    from core.mongodb import assert_pipeline_active
+    assert_pipeline_active(candidate.get("job_id"))
 
     if candidate.get("response") != "Interested":
         raise HTTPException(
@@ -158,6 +162,8 @@ def create_and_send_offer(candidate_id: str):
     candidate = get_sourcing_candidates().find_one({"_id": oid})
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+        
+    assert_pipeline_active(candidate.get("job_id"))
 
     if candidate.get("status") not in {CandidateStatus.EVALUATED.value, CandidateStatus.RESPONDED.value}:
         raise HTTPException(
@@ -214,6 +220,8 @@ def process_job_candidates(request: ProcessRequest):
     """
     if not request.job_id:
         raise HTTPException(status_code=400, detail="job_id is required")
+        
+    assert_pipeline_active(request.job_id)
 
     summary = process_candidates(request.job_id)
 

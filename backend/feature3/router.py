@@ -11,6 +11,7 @@ from feature3.schemas import (
 from feature4.db_ops import get_candidate_by_id
 from feature2.db_ops import get_published_jd
 from feature1.db_ops import get_role_brief_by_thread
+from core.mongodb import assert_pipeline_active
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/feature3", tags=["feature3"])
@@ -33,6 +34,8 @@ def send_outreach(request: OutreachRequest):
     """
     if not request.candidates:
         raise HTTPException(status_code=400, detail="At least one candidate is required")
+    
+    assert_pipeline_active(request.job_id)
 
     targets = [
         {"candidate_id": c.candidate_id, "email": c.email}
@@ -61,6 +64,7 @@ def retry_outreach(request: RetryRequest):
     Re-uses the stored subject + body — no LLM call is made.
     Only the email delivery step is retried.
     """
+    assert_pipeline_active(request.job_id)
     successes, failures = run_outreach_retry(request.job_id)
 
     if not successes and not failures:
@@ -142,6 +146,8 @@ def start_outreach_sequence(request: StartOutreachRequest):
     from feature2.db_ops import get_sourcing_candidates_by_job, update_candidate_status, update_candidate_field
     import time
     import random
+    
+    assert_pipeline_active(request.jd_id)
     
     candidates = get_sourcing_candidates_by_job(request.jd_id)
     shortlisted = [c for c in candidates if c.get("status") == "shortlisted"]
