@@ -8,10 +8,10 @@ Talynx ATA is an end-to-end, AI-powered Applicant Tracking System (ATS) that aut
   Conversational AI agent for gathering role requirements from hiring managers via chat, automatically generating and publishing highly optimized job descriptions.
   
 - **Feature 2: Sourcing & Screening**
-  Uses the GitHub API (combined with rich Demo candidate fallbacks) to source candidates natively. Features semantic skill matching via SentenceTransformers to score and rank candidate fit.
+  Implements a **dual-stream candidate sourcing architecture**, seamlessly integrating high-quality "Demo" candidates (featuring structured ATS-style resumes) alongside "Live" developer profiles sourced natively via the GitHub API. Features robust sourcing intelligence using LLM-generated dynamic queries, paired with semantic skill matching via SentenceTransformers to accurately score and rank candidate fit.
   - **Candidate Comparison Matrix:** Compare selected candidates side-by-side.
   - **HR Notes:** Real-time notes synchronization.
-  - **Resume Viewer:** Clean, modal-based resume document viewing.
+  - **Dedicated Profile Viewers:** Advanced UX supporting both modal-based ATS resume viewing and native GitHub profile rendering.
 
 - **Feature 3: Outreach Sequences**
   Generates personalized outreach sequences based on candidate profiles. Automatically manages replies (simulated in demo mode) and transitions interested respondents directly to the evaluation queue.

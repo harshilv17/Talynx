@@ -15,6 +15,7 @@ Talynx ATA is fundamentally split into a stateless Next.js Frontend and a FastAP
 - **AI/LLM:** LangGraph state machines for orchestration. Direct integrations with OpenAI APIs.
 - **Embeddings:** `sentence-transformers` for calculating semantic candidate-to-JD fit natively without relying on heavy external vector databases.
 - **Architecture Style:** Modular monolith separated by feature (`backend/feature1`, `backend/feature2`, etc.)
+- **Security & Validation:** Hardened API endpoints enforcing strict pipeline status validations across all lifecycle events to ensure state machine and architectural integrity.
 
 ## MongoDB Document Model
 
@@ -31,7 +32,7 @@ The application operates on primarily two collections:
 - HR notes are saved to a dedicated `notes` field in this document.
 
 ## State Machine Pipeline
-The recruitment pipeline follows a strict state transition model:
+The recruitment pipeline follows a strict state transition model, securely enforced at the API endpoint level to prevent invalid lifecycle mutations:
 1. `pending`: Freshly sourced candidate.
 2. `shortlisted` / `saved` / `rejected`: After human screening.
 3. `contacted`: Outreach sent.
