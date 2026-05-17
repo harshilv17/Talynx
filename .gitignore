@@ -40,3 +40,37 @@ out/
 *~
 
 postgres_data/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+.next/
+dist/
+build/
+
+# Env
+.env
+
+# Logs
+*.log
+
+# Mac
+.DS_Store
+
+# Cache
+.cache/
+.pytest_cache/
+
+# Embeddings / models
+models/
+vectorstore/
+chroma/
+faiss_index/
+
+# Temporary
+tmp/
+temp/
