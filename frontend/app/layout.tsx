@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { BackgroundWakeup } from "@/components/BackgroundWakeup";
 
 export const metadata: Metadata = {
   title: "ATA - Autonomous Talent Acquisition",
@@ -29,6 +30,7 @@ export default function RootLayout({
             {children}
           </main>
         </div>
+        <BackgroundWakeup />
       </body>
     </html>
   );

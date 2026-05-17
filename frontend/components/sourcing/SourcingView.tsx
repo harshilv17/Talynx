@@ -34,6 +34,7 @@ export function SourcingView({ threadId }: SourcingViewProps) {
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateResult | null>(null);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+  const [isWakingBackend, setIsWakingBackend] = useState(false);
 
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [isBulkSending, setIsBulkSending] = useState(false);
@@ -53,13 +54,21 @@ export function SourcingView({ threadId }: SourcingViewProps) {
 
   const fetchStatus = useCallback(async () => {
     try {
+      const controller = new AbortController();
+      // Generous timeout for normal checking, but fast enough to catch hangs
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
       const response = await fetch(
-        `${getApiBaseUrl()}/api/v1/feature2/status/${threadId}`
+        `${getApiBaseUrl()}/api/v1/feature2/status/${threadId}`,
+        { signal: controller.signal }
       );
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.detail || "Failed to fetch sourcing status");
       }
+      setIsWakingBackend(false); // Successfully connected
       const data: SourcingStatusResponse = await response.json();
       setStatus(data);
       if (data.status === "completed") {
@@ -67,7 +76,11 @@ export function SourcingView({ threadId }: SourcingViewProps) {
       }
       return data;
     } catch (err: any) {
-      setError(err.message);
+      if (err.name === 'AbortError' || err.message.includes('fetch')) {
+        setIsWakingBackend(true);
+      } else {
+        setError(err.message);
+      }
       return null;
     }
   }, [threadId, fetchCandidates]);
@@ -97,21 +110,33 @@ export function SourcingView({ threadId }: SourcingViewProps) {
   const handleStartSourcing = async () => {
     setIsStarting(true);
     setError(null);
+    setIsWakingBackend(false);
+
+    const wakeTimer = setTimeout(() => {
+      setIsWakingBackend(true);
+    }, 6000); // 6 seconds before showing wake up message
 
     try {
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/feature2/start-sourcing/${threadId}`,
         { method: "POST" }
       );
+      clearTimeout(wakeTimer);
 
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.detail || "Failed to start sourcing");
       }
 
+      setIsWakingBackend(false);
       setStatus({ thread_id: threadId, status: "in_progress", error_message: null });
     } catch (err: any) {
-      setError(err.message);
+      clearTimeout(wakeTimer);
+      if (err.message.includes('fetch')) {
+        setIsWakingBackend(true);
+      } else {
+        setError(err.message);
+      }
     } finally {
       setIsStarting(false);
     }
@@ -567,6 +592,12 @@ export function SourcingView({ threadId }: SourcingViewProps) {
                 <p className="text-slate-600 text-center max-w-md">
                   {STEPS[stepIndex]}
                 </p>
+                {isWakingBackend && (
+                  <div className="mt-4 p-3 bg-blue-50 text-blue-800 rounded-md border border-blue-200 text-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <strong>Waking AI backend...</strong><br />
+                    This may take up to 30 seconds on first load.
+                  </div>
+                )}
               </div>
 
               <div className="w-full max-w-xs space-y-2">
@@ -638,6 +669,18 @@ export function SourcingView({ threadId }: SourcingViewProps) {
                 </>
               )}
             </Button>
+            
+            {isWakingBackend && isStarting && (
+              <div className="mx-auto max-w-sm mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md text-left animate-in fade-in slide-in-from-bottom-2">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+                  <div className="text-sm text-blue-800">
+                    <strong>Waking AI backend...</strong><br />
+                    This may take up to 30 seconds on first load.
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <p className="text-xs text-muted-foreground">
