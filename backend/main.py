@@ -87,7 +87,7 @@ def root():
     }
 
 
-@app.get("/api/v1/system/status")
+@app.api_route("/api/v1/system/status", methods=["GET", "HEAD"])
 def system_status():
     return {
         "status": "healthy",
