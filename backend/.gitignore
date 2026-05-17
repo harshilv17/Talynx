@@ -21,3 +21,12 @@ wheels/
 venv/
 .venv
 .env
+__pycache__/
+*.pyc
+venv/
+.env
+.cache/
+.pytest_cache/
+uploads/
+generated/
+logs/
