@@ -8,22 +8,21 @@ Model: all-MiniLM-L6-v2 (384-dim, ~80MB, no GPU needed)
 """
 import logging
 import numpy as np
-from functools import lru_cache
+from fastembed import TextEmbedding
 
 logger = logging.getLogger(__name__)
 
-_MODEL_NAME = "all-MiniLM-L6-v2"
+_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 _model = None
 
 
 def _get_model():
-    """Lazy-load the sentence-transformer model (singleton)."""
+    """Lazy-load the fastembed model (singleton)."""
     global _model
     if _model is None:
-        logger.info("Loading sentence-transformers model: %s", _MODEL_NAME)
-        from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer(_MODEL_NAME)
-        logger.info("Model loaded successfully (dim=%d)", _model.get_sentence_embedding_dimension())
+        logger.info("Loading fastembed model: %s", _MODEL_NAME)
+        _model = TextEmbedding(model_name=_MODEL_NAME)
+        logger.info("Model loaded successfully")
     return _model
 
 
@@ -35,8 +34,11 @@ def embed_texts(texts: list[str]) -> np.ndarray:
     -------
     np.ndarray of shape (len(texts), 384)
     """
+    if not texts:
+        return np.array([])
+        
     model = _get_model()
-    embeddings = model.encode(texts, show_progress_bar=False, normalize_embeddings=True)
+    embeddings = list(model.embed(texts))
     return np.array(embeddings)
 
 

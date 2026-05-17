@@ -7,7 +7,7 @@ services:
     runtime: python
     rootDir: backend
     plan: free
-    buildCommand: pip install -r requirements.txt && pip uninstall -y sentence-transformers torch transformers huggingface_hub tokenizers torchaudio torchvision langchain-mongodb langchain langchain-classic 2>/dev/null || true
+    buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
@@ -18,9 +18,9 @@ services:
         sync: false
       - key: MONGODB_DB_NAME
         value: ata
-      # Set CORS_ORIGINS to your frontend URL after deploy, e.g. https://ata-frontend.onrender.com
+      # Allow all CORS origins for demo purposes and cross-service communication
       - key: CORS_ORIGINS
-        value: http://localhost:3000
+        value: "*"
       # Block any accidental HuggingFace model downloads (no local models used)
       - key: TRANSFORMERS_OFFLINE
         value: "1"
