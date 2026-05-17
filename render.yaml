@@ -21,13 +21,9 @@ services:
       # Allow all CORS origins for demo purposes and cross-service communication
       - key: CORS_ORIGINS
         value: "*"
-      # Block any accidental HuggingFace model downloads (no local models used)
-      - key: TRANSFORMERS_OFFLINE
-        value: "1"
-      - key: HF_DATASETS_OFFLINE
-        value: "1"
-      - key: TOKENIZERS_PARALLELISM
-        value: "false"
+      # Optional Hugging Face token for higher rate-limit serverless embeddings
+      - key: HF_TOKEN
+        sync: false
 
   - type: web
     name: ata-frontend

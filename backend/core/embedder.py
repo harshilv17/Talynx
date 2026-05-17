@@ -6,40 +6,58 @@ Used by:
 
 Model: all-MiniLM-L6-v2 (384-dim, ~80MB, no GPU needed)
 """
+import os
 import logging
 import numpy as np
-from fastembed import TextEmbedding
+import httpx
 
 logger = logging.getLogger(__name__)
 
-_MODEL_NAME = "BAAI/bge-small-en-v1.5"
-_model = None
-
-
-def _get_model():
-    """Lazy-load the fastembed model (singleton)."""
-    global _model
-    if _model is None:
-        logger.info("Loading fastembed model: %s", _MODEL_NAME)
-        _model = TextEmbedding(model_name=_MODEL_NAME)
-        logger.info("Model loaded successfully")
-    return _model
+# Hugging Face serverless inference API endpoint
+_HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+_API_URL = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{_HF_MODEL}"
 
 
 def embed_texts(texts: list[str]) -> np.ndarray:
     """
-    Encode a list of texts into dense embeddings.
-
-    Returns
-    -------
-    np.ndarray of shape (len(texts), 384)
+    Encode a list of texts into dense 384-dimensional embeddings 
+    using the serverless Hugging Face Inference API.
+    
+    This keeps the Render deployment extremely lightweight and 100% free of local ML packages.
     """
     if not texts:
         return np.array([])
+
+    token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
         
-    model = _get_model()
-    embeddings = list(model.embed(texts))
-    return np.array(embeddings)
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                _API_URL,
+                headers=headers,
+                json={"inputs": texts, "options": {"wait_for_model": True}}
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"HuggingFace API failed ({response.status_code}): {response.text}")
+                response.raise_for_status()
+                
+            embeddings = response.json()
+            
+            # Verify shape/format
+            if not isinstance(embeddings, list):
+                raise ValueError(f"Unexpected response format: {embeddings}")
+                
+            return np.array(embeddings)
+            
+    except Exception as e:
+        logger.error(f"Failed to generate embeddings via HuggingFace API: {e}")
+        # Fallback to zero-vectors of shape (len(texts), 384) to prevent dashboard/sourcing crash
+        logger.warning("Falling back to zero-vectors to prevent backend pipeline crashes.")
+        return np.zeros((len(texts), 384))
 
 
 def embed_single(text: str) -> np.ndarray:
