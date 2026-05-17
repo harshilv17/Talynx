@@ -87,8 +87,8 @@ def root():
     }
 
 
-@app.get("/health")
-def health_check():
+@app.get("/api/v1/system/status")
+def system_status():
     return {
         "status": "healthy",
         "service": "talynx-api"

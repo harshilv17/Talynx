@@ -55,8 +55,9 @@ export function SourcingView({ threadId }: SourcingViewProps) {
   const fetchStatus = useCallback(async () => {
     try {
       const controller = new AbortController();
-      // Generous timeout for normal checking, but fast enough to catch hangs
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      // Render cold starts take ~30s. We use 45s to be extremely safe, preventing AbortErrors 
+      // from firing before Render actually completes booting.
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
 
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/feature2/status/${threadId}`,
@@ -117,10 +118,20 @@ export function SourcingView({ threadId }: SourcingViewProps) {
     }, 6000); // 6 seconds before showing wake up message
 
     try {
+      const controller = new AbortController();
+      // Allow 60s for the initial POST request, since if Render is cold-starting,
+      // it will hold the request open until it boots. 
+      // If we timeout too early, the frontend gives up while the backend is still trying to start!
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
       const response = await fetch(
         `${getApiBaseUrl()}/api/v1/feature2/start-sourcing/${threadId}`,
-        { method: "POST" }
+        { 
+          method: "POST",
+          signal: controller.signal 
+        }
       );
+      clearTimeout(timeoutId);
       clearTimeout(wakeTimer);
 
       if (!response.ok) {

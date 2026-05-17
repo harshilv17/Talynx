@@ -5,17 +5,18 @@ import { getApiBaseUrl } from "@/lib/utils";
 
 export function BackgroundWakeup() {
   useEffect(() => {
-    // Silently ping the backend health endpoint to wake up the Render service
-    // We use a short timeout so it doesn't block or hang resources unnecessarily
+    // Ping the backend system status to wake up Render.
+    // Timeout is 45s because Render cold starts can take up to 30s-40s.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-    fetch(`${getApiBaseUrl()}/health`, { 
+    fetch(`${getApiBaseUrl()}/api/v1/system/status`, { 
       cache: 'no-store',
       signal: controller.signal 
     })
-    .catch(() => {
-      // Silently ignore errors - this is just a wake-up ping
+    .then(res => console.log("[BackgroundWakeup] Backend is awake! Status:", res.status))
+    .catch((err) => {
+      console.log("[BackgroundWakeup] Silent ping complete or aborted:", err.name);
     })
     .finally(() => {
       clearTimeout(timeoutId);
