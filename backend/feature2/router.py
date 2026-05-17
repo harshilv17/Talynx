@@ -20,12 +20,20 @@ router = APIRouter(prefix="/api/v1/feature2", tags=["feature2"])
 # Background task helper
 # ─────────────────────────────────────────────
 
+import logging
+import traceback
+
 def run_sourcing_background(thread_id: str, initial_state: Feature2State):
+    logging.info(f"[Feature2] run_sourcing_background STARTED for {thread_id}")
     try:
+        logging.info(f"[Feature2] Creating graph for {thread_id}")
         graph = create_feature2_graph()
+        logging.info(f"[Feature2] Graph created. Invoking initial state for {thread_id}...")
         graph.invoke(initial_state)
+        logging.info(f"[Feature2] Graph invocation COMPLETED for {thread_id}")
     except Exception as e:
-        db_ops.update_sourcing_queue_status(thread_id, SourcingQueueStatus.PENDING)
+        logging.error(f"[Feature2] PIPELINE CRASHED in background task: {traceback.format_exc()}")
+        db_ops.update_sourcing_progress(thread_id, "failed", error_message=f"Pipeline crashed: {str(e)}")
 
 
 # ─────────────────────────────────────────────
@@ -61,39 +69,129 @@ def start_sourcing(thread_id: str, background_tasks: BackgroundTasks):
         "candidate_embeddings": None,
         "ranked_candidates": None,
         "shortlisted": None,
-        "status": "pending",
+        "status": "in_progress",
         "error_message": None,
     }
 
+    from datetime import datetime
+    get_sourcing_queue = db_ops.get_sourcing_queue
+    
+    import logging
+    logging.info(f"[Feature2] /start-sourcing called for {thread_id}. Attempting to update initial DB state...")
+    
+    try:
+        res = get_sourcing_queue().update_one(
+            {"thread_id": thread_id},
+            {"$set": {
+                "status": "in_progress",
+                "stage": "initializing",
+                "progress": 0,
+                "message": "Initializing sourcing pipeline...",
+                "started_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        logging.info(f"[Feature2] Initial DB update result for {thread_id}: matched={res.matched_count}, modified={res.modified_count}")
+    except Exception as db_e:
+        logging.error(f"[Feature2] DB update failed during start_sourcing: {db_e}")
+        raise HTTPException(status_code=500, detail="Failed to initialize pipeline state in DB.")
+
+    logging.info(f"[Feature2] Queuing background task for {thread_id}")
     background_tasks.add_task(run_sourcing_background, thread_id, initial_state)
+    logging.info(f"[Feature2] /start-sourcing endpoint complete for {thread_id}")
     return StartSourcingResponse(thread_id=thread_id, status="in_progress")
 
 
 @router.get("/status/{thread_id}", response_model=SourcingStatusResponse)
 def get_sourcing_status(thread_id: str):
     """Return current sourcing status and shortlisted candidates if complete."""
+    import logging
+    import traceback
+    try:
+        sourcing_entry = db_ops.get_sourcing_queue_entry(thread_id)
+        if not sourcing_entry:
+            raise HTTPException(status_code=404, detail="No sourcing queue entry found for this thread")
 
-    sourcing_entry = db_ops.get_sourcing_queue_entry(thread_id)
-    if not sourcing_entry:
-        raise HTTPException(status_code=404, detail="No sourcing queue entry found for this thread")
+        current_status = sourcing_entry.get("status", SourcingQueueStatus.PENDING)
 
-    current_status = sourcing_entry.get("status", SourcingQueueStatus.PENDING)
+        from datetime import datetime
+        started_at = sourcing_entry.get("started_at")
+        
+        elapsed = 0
+        if started_at:
+            if isinstance(started_at, str):
+                try:
+                    started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                except Exception:
+                    pass
 
-    if current_status == SourcingQueueStatus.COMPLETED:
+            end_time = sourcing_entry.get("updated_at") if current_status in ["completed", "failed"] else datetime.utcnow()
+            
+            if isinstance(end_time, str):
+                try:
+                    end_time = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+                except Exception:
+                    end_time = datetime.utcnow()
+                    
+            if end_time and started_at and isinstance(end_time, datetime) and isinstance(started_at, datetime):
+                # Ensure timezone offset comparability
+                if started_at.tzinfo and not end_time.tzinfo:
+                    started_at = started_at.replace(tzinfo=None)
+                elif end_time.tzinfo and not started_at.tzinfo:
+                    end_time = end_time.replace(tzinfo=None)
+                
+                try:
+                    elapsed = int((end_time - started_at).total_seconds())
+                except Exception as dt_e:
+                    logging.error(f"Datetime subtraction error: {dt_e}")
+                    elapsed = 0
+
+            # ORPHANED JOB DETECTION:
+            # If the job is marked as in_progress but hasn't updated its progress in the DB 
+            # for more than 180 seconds, the background thread has silently crashed or died.
+            if current_status == "in_progress":
+                last_updated = sourcing_entry.get("updated_at")
+                if isinstance(last_updated, str):
+                    try:
+                        last_updated = datetime.fromisoformat(last_updated.replace("Z", "+00:00"))
+                    except Exception:
+                        last_updated = datetime.utcnow()
+                
+                if last_updated and isinstance(last_updated, datetime):
+                    if last_updated.tzinfo:
+                        last_updated = last_updated.replace(tzinfo=None)
+                    
+                    idle_time = (datetime.utcnow() - last_updated).total_seconds()
+                    if idle_time > 180:
+                        logging.error(f"[Feature2] Orphaned job detected for {thread_id}. Idle for {idle_time}s. Failing.")
+                        db_ops.update_sourcing_progress(
+                            thread_id, 
+                            "failed", 
+                            error_message="Pipeline execution crashed silently or timed out. Please retry."
+                        )
+                        current_status = "failed"
+                        sourcing_entry["error_message"] = "Pipeline execution crashed silently or timed out. Please retry."
+
+        status_map = {
+            SourcingQueueStatus.PENDING: "pending",
+            SourcingQueueStatus.IN_PROGRESS: "in_progress",
+        }
+
         return SourcingStatusResponse(
             thread_id=thread_id,
-            status="completed",
+            status=status_map.get(current_status, current_status),
+            stage=sourcing_entry.get("stage"),
+            progress=sourcing_entry.get("progress", 0),
+            message=sourcing_entry.get("message"),
+            error_message=sourcing_entry.get("error_message"),
+            elapsed_seconds=elapsed,
         )
-
-    status_map = {
-        SourcingQueueStatus.PENDING: "pending",
-        SourcingQueueStatus.IN_PROGRESS: "in_progress",
-    }
-
-    return SourcingStatusResponse(
-        thread_id=thread_id,
-        status=status_map.get(current_status, current_status),
-    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error in get_sourcing_status: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Status polling error: {str(e)}")
 
 
 @router.get("/candidates", response_model=SourcingCandidatesResponse)

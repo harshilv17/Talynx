@@ -26,19 +26,26 @@ def _generate_github_query(role_brief: dict) -> str:
     
     Return JUST the query string, no quotes, no markdown.
     """
+    import time
+    logger.info(f"[Groq] Generating GitHub query for role: {title}")
+    t_start = time.time()
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
-            max_tokens=50
+            max_tokens=50,
+            timeout=30.0
         )
         query = response.choices[0].message.content.strip().replace('"', '')
         if "language:" not in query:
             query += f" language:{skills[0].lower() if skills else 'python'}"
+        logger.info(f"[Groq] GitHub query generated in {time.time()-t_start:.2f}s: {query}")
         return query
     except Exception as e:
-        logger.error(f"Failed to generate query: {e}")
+        logger.error(f"[Groq] Failed to generate query in {time.time()-t_start:.2f}s: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return f"{skills[0].lower() if skills else 'python'} language:{skills[0].lower() if skills else 'python'}"
 
 def _fetch_live_github_candidates(role_brief: dict) -> list[dict]:
@@ -61,13 +68,15 @@ def _fetch_live_github_candidates(role_brief: dict) -> list[dict]:
     candidates = []
     
     try:
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(timeout=30.0) as client:
+            logger.info(f"[GitHub API] Searching candidates with query: {query}")
             resp = client.get(url, headers=headers)
             if resp.status_code != 200:
-                logger.warning(f"GitHub API Error: {resp.status_code}")
+                logger.warning(f"[GitHub API] Error: {resp.status_code}")
                 return candidates
             
             users = resp.json().get("items", [])
+            logger.info(f"[GitHub API] Found {len(users)} candidate profiles. Fetching details...")
             for u in users:
                 user_url = u["url"]
                 user_resp = client.get(user_url, headers=headers)

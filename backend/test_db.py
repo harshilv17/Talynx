@@ -1,8 +1,20 @@
-import sys
-import os
-sys.path.append(os.getcwd())
-from feature2.db_ops import get_sourcing_candidates_by_job, update_candidate_status
-from bson.objectid import ObjectId
-candidates = get_sourcing_candidates_by_job("d6356b02-5ab2-43c3-b276-1f211665c0d0")
-for c in candidates:
-    print(c.get("status", "NO_STATUS"))
+from core.mongodb import get_sourcing_queue
+import pprint
+
+def test():
+    print("Checking sourcing queue state...")
+    try:
+        q = get_sourcing_queue()
+        for doc in q.find({}):
+            print(f"Thread: {doc.get('thread_id')}")
+            print(f"  Status: {doc.get('status')}")
+            print(f"  Progress: {doc.get('progress')}")
+            print(f"  Message: {doc.get('message')}")
+            print(f"  Stage: {doc.get('stage')}")
+            print(f"  Updated: {doc.get('updated_at')}")
+            print("-" * 20)
+    except Exception as e:
+        print(f"FAILED: {e}")
+
+if __name__ == "__main__":
+    test()

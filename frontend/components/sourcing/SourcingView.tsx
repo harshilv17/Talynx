@@ -15,13 +15,7 @@ interface SourcingViewProps {
   threadId: string;
 }
 
-const STEPS = [
-  "Fetching published job description…",
-  "Loading candidate profiles…",
-  "Generating semantic embeddings…",
-  "Ranking and Filtering candidates by relevance…",
-  "Preparing the initial pipeline…",
-];
+// Real-time backend tracking used instead of fake steps.
 
 export function SourcingView({ threadId }: SourcingViewProps) {
   const router = useRouter();
@@ -30,7 +24,7 @@ export function SourcingView({ threadId }: SourcingViewProps) {
   const [activeTab, setActiveTab] = useState<string>("pending");
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0); // Kept for legacy fallback if needed
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateResult | null>(null);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
@@ -74,6 +68,8 @@ export function SourcingView({ threadId }: SourcingViewProps) {
       setStatus(data);
       if (data.status === "completed") {
         fetchCandidates();
+      } else if (data.status === "failed") {
+        setError(data.error_message || "Pipeline execution failed.");
       }
       return data;
     } catch (err: any) {
@@ -81,7 +77,9 @@ export function SourcingView({ threadId }: SourcingViewProps) {
         setIsWakingBackend(true);
       } else {
         setError(err.message);
+        setStatus(prev => prev ? { ...prev, status: "failed" } : null);
       }
+      console.error("[Sourcing Poll Failed]", err);
       return null;
     }
   }, [threadId, fetchCandidates]);
@@ -92,21 +90,10 @@ export function SourcingView({ threadId }: SourcingViewProps) {
 
   useEffect(() => {
     if (status?.status === "in_progress") {
-      const interval = setInterval(fetchStatus, 2500);
+      const interval = setInterval(fetchStatus, 3000); // 3s polling for real-time progress
       return () => clearInterval(interval);
     }
   }, [status?.status, fetchStatus]);
-
-  useEffect(() => {
-    if (status?.status === "in_progress") {
-      const interval = setInterval(() => {
-        setStepIndex((prev) => (prev < STEPS.length - 1 ? prev + 1 : prev));
-      }, 3000);
-      return () => clearInterval(interval);
-    } else {
-      setStepIndex(0);
-    }
-  }, [status?.status]);
 
   const handleStartSourcing = async () => {
     setIsStarting(true);
@@ -586,47 +573,64 @@ export function SourcingView({ threadId }: SourcingViewProps) {
   }
 
   if (status?.status === "in_progress") {
+    // If backend isn't returning progress yet, show a fallback
+    const progress = status.progress || 5; 
+    const message = status.message || "Connecting to cluster...";
+    
     return (
       <div className="max-w-2xl mx-auto py-12">
         <Card className="shadow-lg">
           <CardContent className="py-12">
-            <div className="flex flex-col items-center justify-center space-y-6">
+            <div className="flex flex-col items-center justify-center space-y-8">
+              
               <div className="relative">
-                <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: "2s" }} />
-                <div className="relative rounded-full bg-primary/10 p-6">
+                <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: "2.5s" }} />
+                <div className="relative rounded-full bg-primary/10 p-6 shadow-sm border border-primary/20">
                   <Search className="h-12 w-12 text-primary animate-pulse" />
                 </div>
               </div>
 
-              <div className="text-center space-y-2">
-                <h2 className="text-xl font-semibold">Sourcing Candidates…</h2>
-                <p className="text-slate-600 text-center max-w-md">
-                  {STEPS[stepIndex]}
-                </p>
-                {isWakingBackend && (
-                  <div className="mt-4 p-3 bg-blue-50 text-blue-800 rounded-md border border-blue-200 text-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <strong>Waking AI backend...</strong><br />
-                    This may take up to 30 seconds on first load.
+              <div className="w-full max-w-md space-y-4">
+                <div className="flex justify-between items-end">
+                  <h2 className="text-xl font-bold tracking-tight text-slate-800">
+                    Sourcing Candidates...
+                  </h2>
+                  <span className="text-sm font-mono font-medium text-slate-500">
+                    {progress}%
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                  <div 
+                    className="h-full bg-primary transition-all duration-700 ease-out relative overflow-hidden" 
+                    style={{ width: `${progress}%` }}
+                  >
+                    <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite] w-full" style={{ backgroundImage: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)" }}></div>
                   </div>
-                )}
+                </div>
+
+                <div className="flex justify-between items-center text-sm">
+                  <p className="text-slate-600 font-medium truncate pr-4">
+                    {message}
+                  </p>
+                  <span className="text-slate-400 font-mono text-xs whitespace-nowrap">
+                    {status.elapsed_seconds ? `${status.elapsed_seconds}s` : '0s'}
+                  </span>
+                </div>
               </div>
 
-              <div className="w-full max-w-xs space-y-2">
-                {STEPS.map((step, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    {i < stepIndex ? (
-                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    ) : i === stepIndex ? (
-                      <Loader2 className="h-4 w-4 text-primary animate-spin flex-shrink-0" />
-                    ) : (
-                      <div className="h-4 w-4 rounded-full border-2 border-slate-200 flex-shrink-0" />
-                    )}
-                    <span className={i <= stepIndex ? "text-slate-900" : "text-slate-400"}>
-                      {step.replace("…", "")}
-                    </span>
+              {isWakingBackend && (
+                <div className="w-full max-w-md p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-200 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                    <div className="text-sm leading-snug">
+                      <strong>Waking AI backend cluster...</strong><br />
+                      This may take up to 30 seconds on first load.
+                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -652,10 +656,24 @@ export function SourcingView({ threadId }: SourcingViewProps) {
           </div>
 
           {error && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-4">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-destructive" />
-                <p className="text-sm text-destructive">{error}</p>
+            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-4 text-left">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-destructive text-sm">Pipeline Execution Failed</h3>
+                  <p className="text-sm text-destructive/90 mt-1">{error}</p>
+                  
+                  {status?.status === "failed" && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-3 border-destructive/30 text-destructive hover:bg-destructive/10"
+                      onClick={() => handleStartSourcing()}
+                    >
+                      Retry Pipeline
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           )}

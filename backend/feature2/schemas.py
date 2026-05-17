@@ -26,7 +26,11 @@ class StartSourcingResponse(BaseModel):
 class SourcingStatusResponse(BaseModel):
     thread_id: str
     status: str
+    stage: Optional[str] = None
+    progress: Optional[int] = 0
+    message: Optional[str] = None
     error_message: Optional[str] = None
+    elapsed_seconds: Optional[int] = 0
 
 
 class SourcingCandidatesResponse(BaseModel):

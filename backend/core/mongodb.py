@@ -5,20 +5,31 @@ _settings = get_settings()
 _client: MongoClient | None = None
 
 
-def get_mongo_client() -> MongoClient:
-    """Return a single shared MongoClient.
+import logging
+logger = logging.getLogger(__name__)
 
-    TLS is enabled only for Atlas (mongodb+srv:// URIs); local instances skip it.
-    """
+def get_mongo_client() -> MongoClient:
+    """Return a single shared MongoClient."""
     global _client
     if _client is None:
+        logger.info("[MongoDB] Initializing MongoDB client...")
         uri = _settings.MONGO_URI
         use_tls = uri.startswith("mongodb+srv://")
-        kwargs: dict = {"serverSelectionTimeoutMS": 30000}
+        kwargs: dict = {
+            "serverSelectionTimeoutMS": 5000,
+            "connectTimeoutMS": 5000,
+            "socketTimeoutMS": 10000,
+        }
         if use_tls:
             kwargs["tls"] = True
             kwargs["tlsAllowInvalidCertificates"] = True
-        _client = MongoClient(uri, **kwargs)
+        
+        try:
+            _client = MongoClient(uri, **kwargs)
+            logger.info("[MongoDB] Client initialized successfully.")
+        except Exception as e:
+            logger.error(f"[MongoDB] Client initialization failed: {e}")
+            raise
     return _client
 
 

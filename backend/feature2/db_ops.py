@@ -22,6 +22,21 @@ def update_sourcing_queue_status(thread_id: str, status: str):
         {"$set": {"status": status, "updated_at": datetime.utcnow()}},
     )
 
+def update_sourcing_progress(thread_id: str, status: str, stage: str = None, progress: int = 0, message: str = None, error_message: str = None):
+    update_data = {
+        "status": status,
+        "updated_at": datetime.utcnow()
+    }
+    if stage is not None: update_data["stage"] = stage
+    if progress is not None: update_data["progress"] = progress
+    if message is not None: update_data["message"] = message
+    if error_message is not None: update_data["error_message"] = error_message
+
+    get_sourcing_queue().update_one(
+        {"thread_id": thread_id},
+        {"$set": update_data},
+    )
+
 
 def insert_sourcing_candidates(candidates: list[dict]):
     """Insert multiple candidates into the sourcing_candidates collection."""

@@ -99,7 +99,11 @@ export interface RejectionFeedback {
 export interface SourcingStatusResponse {
   thread_id: string;
   status: string;
+  stage?: string;
+  progress?: number;
+  message?: string;
   error_message?: string | null;
+  elapsed_seconds?: number;
 }
 
 export interface SourcingCandidatesResponse {
